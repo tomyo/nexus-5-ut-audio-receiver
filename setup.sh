@@ -38,7 +38,7 @@ adb push scripts/bt_agent.py /home/phablet/bt_agent.py
 adb shell "chmod +x /home/phablet/vol_sync.py /home/phablet/bt_agent.py"
 
 # 5. Install System Services
-echo "[5/6] Installing persistent background services..."
+echo "[5/7] Installing persistent background services..."
 adb push scripts/vol-sync.conf /tmp/vol-sync.conf
 adb shell "echo 1234 | sudo -S mv /tmp/vol-sync.conf /etc/init/vol-sync.conf"
 adb push scripts/bt-agent.conf /tmp/bt-agent.conf
@@ -46,8 +46,12 @@ adb shell "echo 1234 | sudo -S mv /tmp/bt-agent.conf /etc/init/bt-agent.conf"
 adb shell "echo 1234 | sudo -S chown root:root /etc/init/vol-sync.conf /etc/init/bt-agent.conf"
 adb shell "echo 1234 | sudo -S chmod 644 /etc/init/vol-sync.conf /etc/init/bt-agent.conf"
 
-# 6. Reboot
-echo "[6/6] Setup complete! Rebooting device..."
+# 6. Configure Screen Timeout, Lockscreen and DT2W
+echo "[6/7] Configuring Screen & Wake-on-Touch settings..."
+./scripts/adjust-screen-timeout.sh
+
+# 7. Reboot
+echo "[7/7] Setup complete! Rebooting device..."
 adb reboot
 
 echo "Done. Once the phone boots, it will be ready as 'Parlantes' with Volume Sync active."
