@@ -47,6 +47,25 @@ def set_wifi(enabled):
     try:
         subprocess.call(["nmcli", "radio", "wifi", state])
         log("WiFi turned {}".format(state))
+        
+        # If we just turned WiFi ON, ensure DNS is fixed and Spotify is refreshed
+        if enabled:
+            # Wait for WiFi to associate and get an IP (up to 15 seconds)
+            for _ in range(15):
+                res = subprocess.run(["nmcli", "-t", "-f", "STATE", "g"], stdout=subprocess.PIPE, text=True)
+                if "connected" in res.stdout:
+                    log("WiFi connected. Fixing DNS and Spotifyd...")
+                    # Force public DNS
+                    subprocess.run(["sudo", "mount", "-o", "remount,rw", "/"])
+                    with open("/tmp/resolv.conf.new", "w") as f:
+                        f.write("nameserver 8.8.8.8\nnameserver 1.1.1.1\n")
+                    subprocess.run(["sudo", "mv", "/tmp/resolv.conf.new", "/etc/resolv.conf"])
+                    
+                    # Restart Spotifyd to pick up the new connection
+                    subprocess.run(["sudo", "initctl", "restart", "spotifyd"])
+                    break
+                time.sleep(1)
+                
     except Exception as e:
         log("Error toggling WiFi: {}".format(e))
 
