@@ -30,12 +30,28 @@ adb shell "echo $SUDO_PIN | sudo -S sed -i '/^Name=/d' /etc/bluetooth/main.conf"
 adb shell "echo $SUDO_PIN | sudo -S sed -i '/^\[General\]/a Class = 0x000414' /etc/bluetooth/main.conf"
 adb shell "echo $SUDO_PIN | sudo -S sed -i '/^\[General\]/a Enable=Source,Sink,Media,Socket' /etc/bluetooth/main.conf"
 adb shell "echo $SUDO_PIN | sudo -S sed -i '/^\[General\]/a Name=$DEVICE_NAME' /etc/bluetooth/main.conf"
+
+# Ensure Avahi (mDNS) is installed and running
+echo "Configuring Hostname and mDNS..."
 adb shell "echo $SUDO_PIN | sudo -S bash -c 'echo \"PRETTY_HOSTNAME=$DEVICE_NAME\" > /etc/machine-info'"
 adb shell "echo $SUDO_PIN | sudo -S bash -c 'echo ${DEVICE_NAME,,} > /etc/hostname'"
 adb shell "echo $SUDO_PIN | sudo -S hostname ${DEVICE_NAME,,}"
 adb shell "echo $SUDO_PIN | sudo -S sed -i \"s/127.0.1.1.*/127.0.1.1\t${DEVICE_NAME,,}/\" /etc/hosts"
-# Ensure Avahi (mDNS) is running so parlantes.local works
+
+echo "Checking mDNS (Avahi) installation..."
+if ! adb shell "which avahi-daemon" > /dev/null; then
+    echo "Installing Avahi for .local hostname support..."
+    adb shell "echo $SUDO_PIN | sudo -S apt-get update"
+    adb shell "echo $SUDO_PIN | sudo -S apt-get install -y avahi-daemon libnss-mdns"
+fi
 adb shell "echo $SUDO_PIN | sudo -S initctl restart avahi-daemon || echo $SUDO_PIN | sudo -S service avahi-daemon restart || true"
+
+# Ensure SSH is enabled and configured for password login
+echo "Configuring SSH for remote access..."
+adb shell "echo $SUDO_PIN | sudo -S ssh-keygen -A"
+adb shell "echo $SUDO_PIN | sudo -S sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config"
+adb shell "echo $SUDO_PIN | sudo -S sed -i 's/^#\?ChallengeResponseAuthentication .*/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config"
+adb shell "echo $SUDO_PIN | sudo -S initctl restart ssh || echo $SUDO_PIN | sudo -S service ssh restart || true"
 
 # Force clear adapter cache to ensure the new Class is broadcast
 adb shell "echo $SUDO_PIN | sudo -S rm -rf /var/lib/bluetooth/*"
