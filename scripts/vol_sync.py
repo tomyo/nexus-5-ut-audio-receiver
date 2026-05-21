@@ -38,7 +38,18 @@ def get_bt_state(path):
         pass
     return None
 
+def get_wifi_state():
+    try:
+        # returns "enabled" or "disabled"
+        output = subprocess.check_output(["nmcli", "radio", "wifi"]).decode().strip()
+        return output == "enabled"
+    except:
+        return None
+
 def set_wifi(enabled):
+    if get_wifi_state() == enabled:
+        return
+        
     state = "on" if enabled else "off"
     try:
         # We use nmcli to toggle wifi radio
@@ -136,7 +147,7 @@ def set_pa_port(jack_active):
 
 last_vol = -1
 last_jack = -1
-last_wifi_enabled = True
+last_wifi_enabled = get_wifi_state()
 
 if os.path.exists(LOG_PATH):
     try: os.remove(LOG_PATH)
