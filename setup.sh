@@ -35,7 +35,8 @@ adb shell "echo $SUDO_PIN | sudo -S bash -c 'echo ${DEVICE_NAME,,} > /etc/hostna
 adb shell "echo $SUDO_PIN | sudo -S hostname ${DEVICE_NAME,,}"
 adb shell "echo $SUDO_PIN | sudo -S sed -i \"s/127.0.1.1.*/127.0.1.1\t${DEVICE_NAME,,}/\" /etc/hosts"
 # Ensure Avahi (mDNS) is running so parlantes.local works
-adb shell "echo $SUDO_PIN | sudo -S service avahi-daemon restart || true"
+adb shell "echo $SUDO_PIN | sudo -S initctl restart avahi-daemon || echo $SUDO_PIN | sudo -S service avahi-daemon restart || true"
+
 # Force clear adapter cache to ensure the new Class is broadcast
 adb shell "echo $SUDO_PIN | sudo -S rm -rf /var/lib/bluetooth/*"
 
@@ -72,8 +73,15 @@ done
 echo "[6/7] Configuring Screen & Wake-on-Touch settings..."
 ./scripts/adjust-screen-timeout.sh
 
-# 7. Reboot
-echo "[7/7] Setup complete! Rebooting device..."
+# 7. Final Info & Reboot
+echo "[7/7] Setup complete!"
+PHONE_IP=$(adb shell ip addr show wlan0 | grep "inet " | awk '{print $2}' | cut -d/ -f1 | head -n1)
+echo "----------------------------------------------------"
+echo "Device Hostname: ${DEVICE_NAME,,}.local"
+echo "Device IP:       $PHONE_IP"
+echo "Remote SSH:      ssh phablet@$PHONE_IP"
+echo "----------------------------------------------------"
+echo "Rebooting device..."
 adb reboot
 
-echo "Done. Once the phone boots, it will be ready as 'Parlantes' with Volume Sync active."
+echo "Done. Once the phone boots, it will be ready as '$DEVICE_NAME'."
