@@ -13,14 +13,21 @@ adb shell "echo 1234 | sudo -S mount -o remount,rw /"
 
 # 2. Configure Bluetooth for Sink Mode & Speaker Identity
 echo "[2/6] Configuring Bluetooth Sink & Identity..."
-adb shell "echo 1234 | sudo -S sed -i 's/^Class =.*/Class = 0x000414/' /etc/bluetooth/main.conf"
-adb shell "echo 1234 | sudo -S sed -i '/^\[General\]/a Class = 0x000414' /etc/bluetooth/main.conf"
+# Clean up existing entries to prevent duplicates
+adb shell "echo 1234 | sudo -S sed -i '/^Class =/d' /etc/bluetooth/main.conf"
 adb shell "echo 1234 | sudo -S sed -i '/^Enable=/d' /etc/bluetooth/main.conf"
-adb shell "echo 1234 | sudo -S sed -i '/^\[General\]/a Enable=Source,Sink,Media,Socket' /etc/bluetooth/main.conf"
 adb shell "echo 1234 | sudo -S sed -i '/^Name=/d' /etc/bluetooth/main.conf"
+
+# Add fresh entries under [General]
+adb shell "echo 1234 | sudo -S sed -i '/^\[General\]/a Class = 0x000414' /etc/bluetooth/main.conf"
+adb shell "echo 1234 | sudo -S sed -i '/^\[General\]/a Enable=Source,Sink,Media,Socket' /etc/bluetooth/main.conf"
 adb shell "echo 1234 | sudo -S sed -i '/^\[General\]/a Name=Parlantes' /etc/bluetooth/main.conf"
 adb shell "echo 1234 | sudo -S bash -c 'echo \"PRETTY_HOSTNAME=Parlantes\" > /etc/machine-info'"
-adb shell "echo 1234 | sudo -S sed -i 's/127.0.1.1.*/127.0.1.1\tParlantes/' /etc/hosts"
+adb shell "echo 1234 | sudo -S bash -c 'echo parlantes > /etc/hostname'"
+adb shell "echo 1234 | sudo -S hostname parlantes"
+adb shell "echo 1234 | sudo -S sed -i 's/127.0.1.1.*/127.0.1.1\tparlantes/' /etc/hosts"
+# Ensure Avahi (mDNS) is running so parlantes.local works
+adb shell "echo 1234 | sudo -S service avahi-daemon restart || true"
 # Force clear adapter cache to ensure the new Class is broadcast
 adb shell "echo 1234 | sudo -S rm -rf /var/lib/bluetooth/*"
 

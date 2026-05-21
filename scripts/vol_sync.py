@@ -21,10 +21,31 @@ def get_active_transport():
     try:
         cmd = "dbus-send --system --dest=org.bluez --print-reply / org.freedesktop.DBus.ObjectManager.GetManagedObjects"
         output = subprocess.check_output(cmd, shell=True).decode()
-        paths = re.findall(r'object path "(/org/bluez/hci0/dev_[^"]+/fd\d+)"', output)
+        # Match transport paths like .../dev_XX_.../fdX or .../dev_XX_.../sepX/fdX
+        paths = re.findall(r'object path "(/org/bluez/hci0/dev_[^"]+/[^"]*fd\d+)"', output)
         return paths[0] if paths else None
     except:
         return None
+
+def get_bt_state(path):
+    try:
+        cmd = "dbus-send --system --dest=org.bluez --print-reply {} org.freedesktop.DBus.Properties.Get string:'org.bluez.MediaTransport1' string:'State'".format(path)
+        output = subprocess.check_output(cmd, shell=True).decode()
+        match = re.search(r'string "([^"]+)"', output)
+        if match:
+            return match.group(1)
+    except:
+        pass
+    return None
+
+def set_wifi(enabled):
+    state = "on" if enabled else "off"
+    try:
+        # We use nmcli to toggle wifi radio
+        subprocess.call(["nmcli", "radio", "wifi", state])
+        log("WiFi turned {}".format(state))
+    except Exception as e:
+        log("Error toggling WiFi: {}".format(e))
 
 def get_bt_volume(path):
     try:
@@ -115,21 +136,37 @@ def set_pa_port(jack_active):
 
 last_vol = -1
 last_jack = -1
+last_wifi_enabled = True
 
 if os.path.exists(LOG_PATH):
     try: os.remove(LOG_PATH)
     except: pass
 
-log("--- Universal Sync Utility v3 Started ---")
+log("--- Universal Sync Utility v4 Started ---")
 
 while True:
     path = get_active_transport()
     if path:
+        state = get_bt_state(path)
+        # Only turn off WiFi if actively playing
+        is_playing = (state == "active")
+        
+        if is_playing and last_wifi_enabled:
+            set_wifi(False)
+            last_wifi_enabled = False
+        elif not is_playing and not last_wifi_enabled:
+            # Note: We turn it back on if it's "idle" or "pending"
+            set_wifi(True)
+            last_wifi_enabled = True
+            
         vol = get_bt_volume(path)
         if vol is not None and vol != last_vol:
             set_volumes(vol)
             last_vol = vol
     else:
+        if not last_wifi_enabled:
+            set_wifi(True)
+            last_wifi_enabled = True
         last_vol = -1
 
     ensure_loopback()
