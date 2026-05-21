@@ -83,6 +83,8 @@ for service in vol-sync bt-wifi-sync jack-sense bt-agent; do
     adb shell "echo $SUDO_PIN | sudo -S mv /tmp/$service.conf /etc/init/$service.conf"
     adb shell "echo $SUDO_PIN | sudo -S chown root:root /etc/init/$service.conf"
     adb shell "echo $SUDO_PIN | sudo -S chmod 644 /etc/init/$service.conf"
+    adb shell "echo $SUDO_PIN | sudo -S initctl stop $service || true"
+    adb shell "echo $SUDO_PIN | sudo -S initctl start $service || true"
 done
 
 # 6. Configure Screen Timeout, Lockscreen and DT2W
