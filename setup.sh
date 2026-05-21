@@ -14,6 +14,7 @@ else
 fi
 
 REBOOT_REQUIRED=0
+IS_RW=0
 
 confirm() {
     local prompt="$1"
@@ -28,16 +29,19 @@ confirm() {
     esac
 }
 
+ensure_rw() {
+    if [ $IS_RW -eq 0 ]; then
+        echo "Remounting system as Read-Write..."
+        adb shell "echo $SUDO_PIN | sudo -S mount -o remount,rw /"
+        IS_RW=1
+    fi
+}
+
 echo "--- Nexus 5 Bluetooth Receiver Setup: $DEVICE_NAME ---"
 
-# 1. Remount system as RW
-if confirm "[1/6] Remount system as Read-Write?"; then
-    echo "Remounting system as Read-Write..."
-    adb shell "echo $SUDO_PIN | sudo -S mount -o remount,rw /"
-fi
-
-# 2. Configure Bluetooth for Sink Mode & Speaker Identity
-if confirm "[2/6] Configure Bluetooth Identity (Name, Class, mDNS, SSH)?"; then
+# 1. Configure Bluetooth for Sink Mode & Speaker Identity
+if confirm "[1/5] Configure Bluetooth Identity (Name, Class, mDNS, SSH)?"; then
+    ensure_rw
     echo "Configuring Bluetooth Sink & Identity..."
     # Clean up existing entries to prevent duplicates
     adb shell "echo $SUDO_PIN | sudo -S sed -i '/^Class =/d' /etc/bluetooth/main.conf"
@@ -74,8 +78,9 @@ if confirm "[2/6] Configure Bluetooth Identity (Name, Class, mDNS, SSH)?"; then
     REBOOT_REQUIRED=1
 fi
 
-# 3. Optimize PulseAudio & Fix A2DP Crash
-if confirm "[3/6] Optimize PulseAudio engine & fix A2DP stability?"; then
+# 2. Optimize PulseAudio & Fix A2DP Crash
+if confirm "[2/5] Optimize PulseAudio engine & fix A2DP stability?"; then
+    ensure_rw
     echo "Tuning PulseAudio engine & fixing stability..."
     adb shell "echo $SUDO_PIN | sudo -S sed -i '/resample-method\|default-sample-rate\|default-fragments\|default-fragment-size-msec/d' /etc/pulse/daemon.conf"
     adb shell "echo -e 'resample-method = trivial\ndefault-sample-rate = 44100\ndefault-fragments = 10\ndefault-fragment-size-msec = 50' | echo $SUDO_PIN | sudo -S tee -a /etc/pulse/daemon.conf"
@@ -84,8 +89,9 @@ if confirm "[3/6] Optimize PulseAudio engine & fix A2DP stability?"; then
     REBOOT_REQUIRED=1
 fi
 
-# 4. Deploy background scripts and config
-if confirm "[4/6] Deploy background Python scripts (Sync, WiFi toggle, etc.)?"; then
+# 3. Deploy background scripts and config
+if confirm "[3/5] Deploy background Python scripts (Sync, WiFi toggle, etc.)?"; then
+    # No RW needed as /home is usually RW
     echo "Deploying Sync & Auto-Pairing scripts..."
     adb push scripts/config.env /home/phablet/config.env
     adb push scripts/vol_sync.py /home/phablet/vol_sync.py
@@ -95,8 +101,9 @@ if confirm "[4/6] Deploy background Python scripts (Sync, WiFi toggle, etc.)?"; 
     adb shell "chmod +x /home/phablet/*.py"
 fi
 
-# 5. Install System Services
-if confirm "[5/6] Install and start persistent background services?"; then
+# 4. Install System Services
+if confirm "[4/5] Install and start persistent background services?"; then
+    ensure_rw
     echo "Installing persistent background services..."
     # Update the Upstart script with the correct governor and UID
     sed -i "s/echo .* > /echo $CPU_GOVERNOR > /" scripts/vol-sync.conf
@@ -112,8 +119,9 @@ if confirm "[5/6] Install and start persistent background services?"; then
     done
 fi
 
-# 6. Configure Screen Timeout, Lockscreen and DT2W
-if confirm "[6/6] Apply Screen Timeout and Lockscreen settings?"; then
+# 5. Configure Screen Timeout, Lockscreen and DT2W
+if confirm "[5/5] Apply Screen Timeout and Lockscreen settings?"; then
+    # No RW needed for gsettings or /sys
     echo "Configuring Screen & Wake-on-Touch settings..."
     ./scripts/adjust-screen-timeout.sh
 fi
