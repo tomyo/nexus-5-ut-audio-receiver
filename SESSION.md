@@ -64,8 +64,15 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 - Prior experiment commits: `6979df7` baseline/rollback, `274c456` candidate verification, `32e91ed` listening acceptance.
 - Pre-existing changes in `README.md`, `setup.sh`, `scripts/adjust-screen-timeout.sh`, and untracked power/lockscreen files were left untouched and excluded from experiment commits.
 
+## Follow-up: Wi-Fi SSH Restored (2026-10-21)
+- Supersedes the earlier observation that SSH was not enabled: key-authenticated `ssh phablet@192.168.11.197` now succeeds from this workstation.
+- Root cause: `/etc/init/ssh.override` sets `manual` and forces password authentication off; `setup.sh` only restarted SSH and edited password settings, without enabling the Ubuntu Touch boot property or provisioning a public key.
+- Set `persist.service.ssh=true` using `setprop` and added this workstation's existing Ed25519 public key to the phone's authorized keys. The property watcher started SSH. No password login enabled, no root filesystem edits.
+- Persistent mechanism configured but not reboot-tested; Wi-Fi still switches off during Bluetooth streaming, and DHCP/mDNS limitations remain unchanged.
+- Details, verification, security notes, and rollback: `diagnostics/ssh-access.md`. Installer update remains future work; existing user edits to `setup.sh` were not modified.
+
 ## Next Steps (Only If Needed)
 1. Monitor longer-term listening stability; revert to the backed-up level 3 if level 4 introduces chopping.
 2. If quality remains inadequate, investigate actual SBC encoding bitrate and analog cable/speaker gain before disruptive hardware-rate experiments.
 3. If requested, reproduce the accepted user override in installation tooling; currently a fresh install does not include it.
-4. Separate future work: enable SSH/mDNS, reserve an IP on the router, investigate volume-sync reconnect behavior, and refine auto-pairing security. None was implemented here.
+4. Separate future work: enable mDNS, reserve an IP on the router, investigate volume-sync reconnect behavior, and refine auto-pairing security. SSH was restored in the follow-up, but its installer path still needs updating if fresh-install reproducibility is requested.
