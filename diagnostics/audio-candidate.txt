@@ -1,0 +1,23 @@
+pid=19155 seconds=30.03 cpu_one_core_pct=7.33
+0	sink.primary	module-droid-card.c	s16le 2ch 48000Hz	RUNNING
+4	bluez_source.94_45_60_BE_43_80	module-bluez5-device.c	s16le 2ch 44100Hz	RUNNING
+pid=19155 seconds=30.02 cpu_one_core_pct=7.30
+0	sink.primary	module-droid-card.c	s16le 2ch 48000Hz	RUNNING
+4	bluez_source.94_45_60_BE_43_80	module-bluez5-device.c	s16le 2ch 44100Hz	RUNNING
+pid=19155 seconds=30.00 cpu_one_core_pct=7.27
+0	sink.primary	module-droid-card.c	s16le 2ch 48000Hz	RUNNING
+4	bluez_source.94_45_60_BE_43_80	module-bluez5-device.c	s16le 2ch 44100Hz	RUNNING
+pid=19155 seconds=30.00 cpu_one_core_pct=7.30
+0	sink.primary	module-droid-card.c	s16le 2ch 48000Hz	RUNNING
+4	bluez_source.94_45_60_BE_43_80	module-bluez5-device.c	s16le 2ch 44100Hz	RUNNING
+pid=19155 seconds=30.03 cpu_one_core_pct=7.26
+0	sink.primary	module-droid-card.c	s16le 2ch 48000Hz	RUNNING
+4	bluez_source.94_45_60_BE_43_80	module-bluez5-device.c	s16le 2ch 44100Hz	RUNNING
+pid=19155 seconds=30.01 cpu_one_core_pct=7.23
+0	sink.primary	module-droid-card.c	s16le 2ch 48000Hz	RUNNING
+4	bluez_source.94_45_60_BE_43_80	module-bluez5-device.c	s16le 2ch 44100Hz	RUNNING
+=== FINAL ROUTING ===
+	Active Port: output-wired_headphone
+	Resample method: speex-fixed-4
+	Resample method: speex-fixed-4
+=== RECENT DIAGNOSTICS ===

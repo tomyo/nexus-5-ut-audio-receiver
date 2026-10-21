@@ -6,10 +6,10 @@ Scope: Diagnose codec and playback headroom, test one reversible quality improve
   EVIDENCE: Saved /home/phablet/audio-quality-backup/daemon.conf; diagnostics/audio-quality.md documents restore and restart commands.
 - [x] G2: Record live Bluetooth codec evidence, sample rates, jack routing, CPU baseline, and available dropout diagnostics; distinguish unavailable evidence from confirmed facts.
   EVIDENCE: BlueZ SBC configuration 21 15 02 35; 44.1 kHz input, 48 kHz jack; baseline 6.87% one-core CPU over 30.01 seconds; actual bitrate and reliable underrun counters unavailable. See diagnostics/audio-quality.md.
-- [ ] G3: Test one resampler quality step with a verified active setting and correct jack routing, or restore baseline if unsafe.
-  EVIDENCE: pending
-- [ ] G4: Compare CPU over equal playback windows and monitor stability for at least three minutes; record limits of dropout detection.
-  EVIDENCE: pending
+- [x] G3: Test one resampler quality step with a verified active setting and correct jack routing, or restore baseline if unsafe.
+  EVIDENCE: Live loopback reports speex-fixed-4; sink and Bluetooth source RUNNING; output-wired_headphone verified. See diagnostics/audio-candidate.txt.
+- [x] G4: Compare CPU over equal playback windows and monitor stability for at least three minutes; record limits of dropout detection.
+  EVIDENCE: Six approximately 30-second windows: 7.33, 7.30, 7.27, 7.30, 7.26, 7.23 percent of one core versus baseline 6.87 percent over 30 seconds. Same process and RUNNING endpoints at every checkpoint. No matching messages in recent syslog tail; no reliable continuous underrun counter. Audible stability requires G5.
 - [ ] G5: Obtain listening feedback before calling the candidate better, and document retained settings and rollback.
   EVIDENCE: pending
 
@@ -17,6 +17,5 @@ Scope: Diagnose codec and playback headroom, test one reversible quality improve
 See diagnostics/audio-quality.md. Preserve pre-existing repository changes; commit only experiment artifacts created for this task.
 
 ## Blocked Handover
-ABANDON: G3 Blocked pending Pixel reconnect/resume: PulseAudio restart restored the jack sink but removed the Bluetooth source; candidate speex-fixed-4 is configured, not yet verified on a live stream.
-ABANDON: G4 Cannot measure candidate playback CPU or stability until Bluetooth music resumes.
-ABANDON: G5 Requires user listening feedback after playback resumes. These gates remain open for the next pass; no improvement claimed.
+G3 and G4 resumed and passed after Pixel reconnection.
+ABANDON: G5 Awaiting user listening feedback after the three-minute candidate test. Candidate remains configured provisionally; subjective improvement and absence of audible chopping are not claimed.

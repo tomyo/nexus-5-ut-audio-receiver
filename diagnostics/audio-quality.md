@@ -13,8 +13,10 @@
 ## Candidate and current state
 - Changed only resample-method from speex-fixed-3 to speex-fixed-4 in the user override.
 - Restarted PulseAudio using pulseaudio -k followed by pulseaudio --start --log-target=syslog, not the Upstart restart command.
-- Touch hardware sink recovered with correct jack route, but the Bluetooth audio source disappeared after the restart. Pixel reconnection/resuming music is required before validating the candidate.
-- Candidate active resampling, CPU comparison, three-minute stability observation, and listening acceptance are PENDING. Do not call this an improvement yet.
+- Touch hardware sink recovered with correct jack route; Bluetooth source disappeared after restart, then recovered after the user reconnected the Pixel.
+- Live loopback verified speex-fixed-4. Six approximately 30-second measurements over three minutes: 7.33, 7.30, 7.27, 7.30, 7.26, 7.23 percent of one core (mean 7.28 percent), versus baseline 6.87 percent. Roughly 0.41 percentage points more; measurements are not a controlled audio-content/CPU-frequency benchmark.
+- PulseAudio PID remained 19155; source and sink were RUNNING at each checkpoint, with wired headphone routing verified at completion. No matching PulseAudio/underrun messages in the recent 150-line syslog tail, but this is not continuous dropout detection.
+- Candidate remains configured provisionally. Listening acceptance is PENDING; do not call this an audible improvement yet. Raw results: audio-candidate.txt.
 - No sample-rate, buffering, Bluetooth codec, or system-wide settings changed.
 
 ## Rollback via USB
