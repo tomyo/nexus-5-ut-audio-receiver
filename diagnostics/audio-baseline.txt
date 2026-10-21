@@ -1,0 +1,1 @@
+pid=2936 seconds=30.01 cpu_one_core_pct=6.87
