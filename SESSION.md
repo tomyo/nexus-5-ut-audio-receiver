@@ -82,6 +82,13 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 - Only vol-sync restarted. Quality level 4 and rates unchanged. Mocked absent/default/already-buffered bridge checks passed; no source was present at deployment, so live latency and audible stability remain UNVERIFIED pending resumed music.
 - See `diagnostics/buffer-change.md` for rollback and limitations. Phone script backup: `/home/phablet/audio-quality-backup/vol_sync.before-buffer.py`. Do not describe this as a proven fix, or assume it increases the old module's default target without measuring it.
 
+## Follow-up: Bidirectional Volume Sync (2026-10-21)
+- Volume control didn't work from either device. MediaTransport.Volume was stuck at 127; vol_sync.py only synced Bluetooth→PulseAudio and never saw a change.
+- Discovered MediaTransport.Volume IS writable. Added Nexus→Bluetooth sync with 1s loop guard.
+- Verified both directions: `pactl set-sink-volume 50%` → MediaTransport 63; `MediaTransport=90` → sink 70%.
+- Updated `scripts/vol_sync.py`, redeployed, restarted vol-sync. Pixel hardware keys should now work.
+- See `diagnostics/bidirectional-volume.md`.
+
 ## Next Steps (Only If Needed)
 1. Monitor longer-term listening stability; revert to the backed-up level 3 if level 4 introduces chopping.
 2. If quality remains inadequate, investigate actual SBC encoding bitrate and analog cable/speaker gain before disruptive hardware-rate experiments.
