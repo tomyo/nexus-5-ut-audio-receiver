@@ -78,11 +78,34 @@ def set_sink_volume(vol_127):
     log("Volumes synced to {}%".format(pa_vol))
     return pa_vol
 
+def get_bt_a2dp_source():
+    """Return the Bluetooth A2DP source name if it exists and is RUNNING, else None."""
+    try:
+        output = run_cmd("pactl list sources", check=True)
+        current_name = None
+        current_state = None
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith("Name:"):
+                current_name = line.split("Name:", 1)[1].strip()
+            elif line.startswith("State:"):
+                current_state = line.split("State:", 1)[1].strip()
+                if current_name and "bluez_source" in current_name and current_state == "RUNNING":
+                    return current_name
+                current_name = None
+                current_state = None
+    except: pass
+    return None
+
 def ensure_loopback():
     try:
-        sources = run_cmd("pactl list sources short", check=True)
-        bt_source = next((line.split()[1] for line in sources.splitlines() if "bluez_source" in line), None)
-        if not bt_source: return
+        bt_source = get_bt_a2dp_source()
+        if not bt_source:
+            # No active Bluetooth A2DP source - don't create fallback loopback
+            return
+
+        # Base name without .N suffix to catch policy-created variants
+        bt_base = bt_source.split('.')[0]
 
         modules = run_cmd("pactl list modules short", check=True)
         bridge_ready = False
@@ -91,11 +114,14 @@ def ensure_loopback():
             if len(fields) < 3 or fields[1] != "module-loopback":
                 continue
             args = fields[2].replace('"', '').split()
-            if "source={}".format(bt_source) not in args:
+            # Check if this loopback uses our Bluetooth device (base name match)
+            source_arg = next((a for a in args if a.startswith("source=")), "")
+            if not source_arg.startswith("source=" + bt_base):
                 continue
             if "latency_msec=200" in args:
                 bridge_ready = True
             else:
+                # Policy-created or old loopback - unload it
                 run_cmd("pactl unload-module {}".format(fields[0]))
         if not bridge_ready:
             log("Creating Bluetooth loopback with 200 ms target latency...")

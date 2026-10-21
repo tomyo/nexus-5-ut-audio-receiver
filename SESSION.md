@@ -89,6 +89,13 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 - Updated `scripts/vol_sync.py`, redeployed, restarted vol-sync. Pixel hardware keys should now work.
 - See `diagnostics/bidirectional-volume.md`.
 
+## Follow-up: Loopback Fix (2026-10-21)
+- Mic routed to speakers when Bluetooth idle: `module-loopback` fell back to default source (built-in mic) because Bluetooth A2DP source didn't exist yet.
+- Phaser/flanger during playback: `module-bluetooth-policy` created a second loopback (`.2` monitor) alongside ours.
+- Fixed in `vol_sync.py`: `get_bt_a2dp_source()` only returns RUNNING Bluetooth source; `ensure_loopback()` unloads all loopbacks for the same device base name, keeping only our `latency_msec=200` loopback.
+- Verified: single loopback, mic routing eliminated, phaser gone, volume sync intact.
+- See `diagnostics/loopback-fix.md`.
+
 ## Next Steps (Only If Needed)
 1. Monitor longer-term listening stability; revert to the backed-up level 3 if level 4 introduces chopping.
 2. If quality remains inadequate, investigate actual SBC encoding bitrate and analog cable/speaker gain before disruptive hardware-rate experiments.
