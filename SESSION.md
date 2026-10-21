@@ -77,6 +77,11 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 - Wi-Fi was OFF; no sustained CPU overload seen. RF delay/retries, downstream buffering/scheduling, and sender-side audio remain possible. Default logs do not identify the cause; no PulseAudio debug capture existed.
 - No settings changed. See `diagnostics/dropout-investigation.md` for limitations, private trace paths, and next experiment (bounded audio debug logging, then controlled buffering only if warranted). Raw traces contain audio and are NOT committed.
 
+## Follow-up: 200 ms Music Buffer Trial
+- User approved 200 ms Bluetooth loopback target latency. Updated/deployed `scripts/vol_sync.py` to replace the Bluetooth policy's default bridge for the active source with `latency_msec=200`, while leaving an already-buffered bridge untouched.
+- Only vol-sync restarted. Quality level 4 and rates unchanged. Mocked absent/default/already-buffered bridge checks passed; no source was present at deployment, so live latency and audible stability remain UNVERIFIED pending resumed music.
+- See `diagnostics/buffer-change.md` for rollback and limitations. Phone script backup: `/home/phablet/audio-quality-backup/vol_sync.before-buffer.py`. Do not describe this as a proven fix, or assume it increases the old module's default target without measuring it.
+
 ## Next Steps (Only If Needed)
 1. Monitor longer-term listening stability; revert to the backed-up level 3 if level 4 introduces chopping.
 2. If quality remains inadequate, investigate actual SBC encoding bitrate and analog cable/speaker gain before disruptive hardware-rate experiments.

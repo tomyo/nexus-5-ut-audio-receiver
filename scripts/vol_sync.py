@@ -50,10 +50,23 @@ def ensure_loopback():
         bt_source = next((line.split()[1] for line in sources.splitlines() if "bluez_source" in line), None)
         if not bt_source: return
 
-        inputs = subprocess.check_output(["pactl", "list", "sink-inputs", "short"], env=ENV).decode()
-        if "module-loopback" not in inputs:
-            log("Loopback missing, recreating...")
-            subprocess.call(["pactl", "load-module", "module-loopback", "source={}".format(bt_source), "sink=sink.primary", "sink_input_properties='media.role=music'"], env=ENV)
+        modules = subprocess.check_output(["pactl", "list", "modules", "short"], env=ENV).decode()
+        bridge_ready = False
+        for line in modules.splitlines():
+            fields = line.split("\t", 3)
+            if len(fields) < 3 or fields[1] != "module-loopback":
+                continue
+            args = fields[2].replace('"', '').split()
+            if "source={}".format(bt_source) not in args:
+                continue
+            if "latency_msec=200" in args:
+                bridge_ready = True
+            else:
+                # Bluetooth policy creates a default bridge on reconnect; replace it once.
+                subprocess.check_call(["pactl", "unload-module", fields[0]], env=ENV)
+        if not bridge_ready:
+            log("Creating Bluetooth loopback with 200 ms target latency...")
+            subprocess.check_call(["pactl", "load-module", "module-loopback", "source={}".format(bt_source), "sink=sink.primary", "latency_msec=200", "sink_input_properties=media.role=music"], env=ENV)
         
         # Ensure unmuted
         subprocess.call(["pactl", "list", "sink-inputs"], env=ENV) # Refresh
