@@ -1,3 +1,5 @@
+> Historical session log. Later recovery invalidated earlier claims of stable watchdog routing and bidirectional volume. Current state: README.md and diagnostics/stable-cleanup.md. Computer incompatibility and Pixel routing were not established causes.
+
 # Project State: Nexus 5 Bluetooth Audio Receiver
 
 ## Objective

@@ -1,3 +1,5 @@
+> Historical experiment, superseded by the volume-only recovery. Do not restore the old profile/bridge automation. Current contract: README.md and diagnostics/stable-cleanup.md. Explicit 200 ms buffering and Nexus-to-Pixel volume sync are not active.
+
 # Music loopback buffer: 2026-10-21
 
 User approved a reversible 200 ms Bluetooth loopback target for music, accepting extra delay. Updated scripts/vol_sync.py and deployed to /home/phablet/vol_sync.py. Restarted only vol-sync, not PulseAudio or the phone. speex-fixed-4 and sample rates unchanged.

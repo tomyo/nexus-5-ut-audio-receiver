@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import unittest
 from unittest.mock import patch
+import subprocess
 
 spec = importlib.util.spec_from_file_location(
     "vol_sync", Path(__file__).resolve().parents[1] / "scripts/vol_sync.py")
@@ -28,6 +29,23 @@ class VolumeTests(unittest.TestCase):
         for objects in ({}, {"a": transport(state="idle")},
                         {"a": transport(128)}, {"a": transport(), "b": transport()}):
             self.assertIsNone(sync.active_volume(objects))
+
+    @patch.object(sync.subprocess, "check_call")
+    def test_failed_write_is_retried(self, call):
+        objects = {"a": transport()}
+        call.side_effect = subprocess.CalledProcessError(1, "pactl")
+        with self.assertRaises(subprocess.CalledProcessError):
+            sync.sync_volume(objects, None, {})
+        call.side_effect = None
+        self.assertEqual(sync.sync_volume(objects, None, {}), ("a", 76))
+        self.assertEqual(call.call_count, 2)
+
+    @patch.object(sync.subprocess, "check_call")
+    def test_pause_resume_same_volume_reapplies(self, call):
+        previous = sync.sync_volume({"a": transport()}, None, {})
+        previous = sync.sync_volume({"a": transport(state="idle")}, previous, {})
+        sync.sync_volume({"a": transport()}, previous, {})
+        self.assertEqual(call.call_count, 2)
 
     @patch.object(sync.subprocess, "check_call")
     def test_mute_and_max_and_reconnect(self, call):

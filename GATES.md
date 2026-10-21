@@ -1,21 +1,19 @@
-# Gates: Bluetooth jack audio quality experiment
+# Gates: Stable receiver cleanup
 
-Scope: Diagnose codec and playback headroom, test one reversible quality improvement, and retain only a stable candidate. No guarantee of zero dropouts beyond the measured window.
+Scope: Preserve working volume-only Bluetooth receiver, align installer and documentation, retain supporting features, defer buffer tuning unless chopping returns. Preserve pre-existing local edits.
 
-- [x] G1: Save working phone configuration and exact rollback steps before changing audio.
-  EVIDENCE: Saved /home/phablet/audio-quality-backup/daemon.conf; diagnostics/audio-quality.md documents restore and restart commands.
-- [x] G2: Record live Bluetooth codec evidence, sample rates, jack routing, CPU baseline, and available dropout diagnostics; distinguish unavailable evidence from confirmed facts.
-  EVIDENCE: BlueZ SBC configuration 21 15 02 35; 44.1 kHz input, 48 kHz jack; baseline 6.87% one-core CPU over 30.01 seconds; actual bitrate and reliable underrun counters unavailable. See diagnostics/audio-quality.md.
-- [x] G3: Test one resampler quality step with a verified active setting and correct jack routing, or restore baseline if unsafe.
-  EVIDENCE: Live loopback reports speex-fixed-4; sink and Bluetooth source RUNNING; output-wired_headphone verified. See diagnostics/audio-candidate.txt.
-- [x] G4: Compare CPU over equal playback windows and monitor stability for at least three minutes; record limits of dropout detection.
-  EVIDENCE: Six approximately 30-second windows: 7.33, 7.30, 7.27, 7.30, 7.26, 7.23 percent of one core versus baseline 6.87 percent over 30 seconds. Same process and RUNNING endpoints at every checkpoint. No matching messages in recent syslog tail; no reliable continuous underrun counter. Audible stability requires G5.
-- [x] G5: Obtain listening feedback before calling the candidate better, and document retained settings and rollback.
-  EVIDENCE: User feedback after candidate test: "is sounding good so far". Retain speex-fixed-4; feedback supports acceptable playback so far, not a proven improvement or long-term dropout guarantee. Settings and rollback documented in diagnostics/audio-quality.md.
-
-## Rollback
-See diagnostics/audio-quality.md. Preserve pre-existing repository changes; commit only experiment artifacts created for this task.
-
-## Blocked Handover
-G3 and G4 resumed and passed after Pixel reconnection.
-G5 passed with user listening feedback. All five gates met; retain the candidate without further tuning. Long-term stability and a controlled subjective comparison remain untested.
+- [x] G1: Volume mapper tests cover safe routing isolation and sender lifecycle.
+  CHECK: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests
+  EXPECT: OK
+  EVIDENCE: Ran 12 tests in 0.003s | OK
+- [x] G2: Installer and service configuration have executable regression checks and syntax validation.
+  CHECK: bash -n setup.sh scripts/adjust-screen-timeout.sh && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_setup.py
+  EXPECT: OK
+  EVIDENCE: Ran 4 tests in 0.002s | OK
+- [x] G3: Supporting scripts reviewed; unsupported claims superseded; no explicit buffer enforced.
+  EVIDENCE: Full helper/template review and changes recorded in diagnostics/stable-cleanup.md. README and historical diagnostic notices distinguish current behavior; tests reject routing commands and latency_msec in the volume service.
+- [ ] G4: Live deployed script matches repository and routing survives volume service restart and pause/resume/reconnect.
+  EVIDENCE: Four deployed script hashes matched; three helper restarts succeeded. No active Bluetooth source existed then; later ADB returned no devices/emulators found. Playback lifecycle checks could not be completed.
+ABANDON: G4 Live pause/resume/reconnect verification blocked by unavailable phone; exact follow-up is in diagnostics/stable-cleanup.md.
+- [x] G5: Reboot behavior verified or explicitly handed over if disruptive/unavailable; final diff clean and committed without unrelated changes.
+  EVIDENCE: Reboot verification explicitly handed over in diagnostics/stable-cleanup.md because phone unavailable. Cleanup tracked in git; unrelated screen-timeout edit and untracked lockscreen/power test files excluded. Final diff whitespace validation passed.

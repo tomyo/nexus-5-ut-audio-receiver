@@ -34,24 +34,26 @@ def check_jack():
     except: return -1
 
 def set_pa_port(jack_active):
-    port = "[Out] Headphones" if jack_active else "[Out] Speaker"
-    SINK = "0"
+    port = "output-wired_headphone" if jack_active else "output-speaker"
+    SINK = "sink.primary"
     try:
-        subprocess.call(["pactl", "set-sink-port", SINK, port], env=ENV)
+        subprocess.check_call(["pactl", "set-sink-port", SINK, port], env=ENV, timeout=3)
         log("Port switched to: {}".format(port))
+        return True
     except Exception as e:
         log("Error switching port: {}".format(e))
+    return False
 
-if os.path.exists(LOG_PATH):
-    try: os.remove(LOG_PATH)
-    except: pass
+def main():
+    log("--- Jack Sense Service Started ---")
+    last_jack = -1
+    while True:
+        jack = check_jack()
+        if jack >= 0 and jack != last_jack:
+            if set_pa_port(jack > 0):
+                last_jack = jack
+        time.sleep(1)
 
-log("--- Jack Sense Service Started ---")
-last_jack = -1
 
-while True:
-    jack = check_jack()
-    if jack != last_jack:
-        set_pa_port(jack > 0)
-        last_jack = jack
-    time.sleep(1)
+if __name__ == "__main__":
+    main()

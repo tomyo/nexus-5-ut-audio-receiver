@@ -1,3 +1,5 @@
+> Historical experiment, superseded by the volume-only recovery. Do not restore the old profile/bridge automation. Current contract: README.md and diagnostics/stable-cleanup.md. Explicit 200 ms buffering and Nexus-to-Pixel volume sync are not active.
+
 # Loopback fix: 2026-10-21
 
 ## Problem
