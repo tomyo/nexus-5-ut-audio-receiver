@@ -24,7 +24,7 @@ setprop persist.service.ssh true
 
 The property watcher started SSH automatically. A subsequent explicit `initctl start ssh` reported it already running. Verified `getprop persist.service.ssh` returns `true`, and an actual key-authenticated SSH session over Wi-Fi succeeds.
 
-No root filesystem edits or remounts were needed. This uses the platform's persistent boot mechanism, but a reboot test was deliberately not performed to avoid interrupting playback. The existing installer has NOT been changed; its unrelated local edits were preserved. A future installer fix should set this property and provision public-key access rather than enable password login.
+No root filesystem edits or remounts were needed. A subsequent user-authorized reboot test PASSED: after a 55-second wait, key-authenticated Wi-Fi SSH succeeded at the same DHCP address without manually starting SSH. Boot ID changed from `4fc3a2e7-a210-4733-8225-0cd7134dde9d` to `e7a146ea-079e-4c0e-b87d-37da4dac57cc`, uptime was under one minute, and `persist.service.ssh` remained `true`. The speex-fixed-4 user override also persisted and the Touch Droid sink returned at 48 kHz. Bluetooth playback after reboot was not verified in this check. The existing installer has NOT been changed; its unrelated local edits were preserved. A future installer fix should set this property and provision public-key access rather than enable password login.
 
 ## Limits and rollback
 

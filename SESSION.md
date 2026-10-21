@@ -58,7 +58,7 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 - `sudo -n` requires a password. The successful quality change uses writable user configuration, not a root filesystem remount.
 
 ### Accepted configuration, evidence, and rollback
-- Keep `speex-fixed-4`; do not keep escalating quality without a concrete listening problem. The override remains on the phone across boots, but level 4 was not separately reboot-tested.
+- Keep `speex-fixed-4`; do not keep escalating quality without a concrete listening problem. The override persisted in the subsequent SSH reboot test and the Touch sink returned; level-4 Bluetooth playback after that reboot was not separately verified.
 - Working level-3 configuration is backed up on the phone at `/home/phablet/audio-quality-backup/daemon.conf`. Restore and restart instructions are in `diagnostics/audio-quality.md`; Bluetooth reconnection may be required.
 - `GATES.md`: all five gates passed, including user listening acceptance. Raw CPU/playback checkpoints are in `diagnostics/audio-baseline.txt` and `diagnostics/audio-candidate.txt`.
 - Prior experiment commits: `6979df7` baseline/rollback, `274c456` candidate verification, `32e91ed` listening acceptance.
@@ -68,7 +68,7 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 - Supersedes the earlier observation that SSH was not enabled: key-authenticated `ssh phablet@192.168.11.197` now succeeds from this workstation.
 - Root cause: `/etc/init/ssh.override` sets `manual` and forces password authentication off; `setup.sh` only restarted SSH and edited password settings, without enabling the Ubuntu Touch boot property or provisioning a public key.
 - Set `persist.service.ssh=true` using `setprop` and added this workstation's existing Ed25519 public key to the phone's authorized keys. The property watcher started SSH. No password login enabled, no root filesystem edits.
-- Persistent mechanism configured but not reboot-tested; Wi-Fi still switches off during Bluetooth streaming, and DHCP/mDNS limitations remain unchanged.
+- Reboot test PASSED: after a user-authorized reboot and 55-second wait, key-authenticated Wi-Fi SSH worked without manual startup; new boot ID/under-one-minute uptime confirmed an actual reboot, and the persistent property remained true. The level-4 user config persisted and the Touch sink returned at 48 kHz. Bluetooth playback after this reboot was not checked. Wi-Fi still switches off during streaming; DHCP/mDNS limitations remain unchanged.
 - Details, verification, security notes, and rollback: `diagnostics/ssh-access.md`. Installer update remains future work; existing user edits to `setup.sh` were not modified.
 
 ## Next Steps (Only If Needed)
