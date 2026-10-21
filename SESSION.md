@@ -71,6 +71,12 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 - Reboot test PASSED: after a user-authorized reboot and 55-second wait, key-authenticated Wi-Fi SSH worked without manual startup; new boot ID/under-one-minute uptime confirmed an actual reboot, and the persistent property remained true. The level-4 user config persisted and the Touch sink returned at 48 kHz. Bluetooth playback after this reboot was not checked. Wi-Fi still switches off during streaming; DHCP/mDNS limitations remain unchanged.
 - Details, verification, security notes, and rollback: `diagnostics/ssh-access.md`. Installer update remains future work; existing user edits to `setup.sh` were not modified.
 
+## Follow-up: Residual Chopping Investigated (2026-10-21)
+- User later reported intermittent chopping, worse behind a wall but also occurring close to Nexus. This supersedes any interpretation of the initial three-minute acceptance as long-term dropout-free playback.
+- Five-minute Bluetooth capture included both reported events. Across 16,357 audio packets, no RTP sequence/timestamp discontinuities; SBC bitpool 53 (~328 kbps). Incoming delivery gaps reached ~66 ms, including ~65 ms near the approximate reports, but similar gaps occurred elsewhere.
+- Wi-Fi was OFF; no sustained CPU overload seen. RF delay/retries, downstream buffering/scheduling, and sender-side audio remain possible. Default logs do not identify the cause; no PulseAudio debug capture existed.
+- No settings changed. See `diagnostics/dropout-investigation.md` for limitations, private trace paths, and next experiment (bounded audio debug logging, then controlled buffering only if warranted). Raw traces contain audio and are NOT committed.
+
 ## Next Steps (Only If Needed)
 1. Monitor longer-term listening stability; revert to the backed-up level 3 if level 4 introduces chopping.
 2. If quality remains inadequate, investigate actual SBC encoding bitrate and analog cable/speaker gain before disruptive hardware-rate experiments.
