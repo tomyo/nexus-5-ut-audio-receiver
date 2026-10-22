@@ -26,9 +26,9 @@ fi
 
 echo "Using DBUS Address: $DBUS_ADDR"
 
-# 1. Set timeout to 1 minute (60 seconds)
-echo "Setting screen timeout to 60 seconds..."
-adb shell "DBUS_SESSION_BUS_ADDRESS=$DBUS_ADDR gsettings set com.ubuntu.touch.system activity-timeout 60"
+# 1. Set timeout to 5 minutes (300 seconds)
+echo "Setting screen timeout to 300 seconds..."
+adb shell "DBUS_SESSION_BUS_ADDRESS=$DBUS_ADDR gsettings set com.ubuntu.touch.system activity-timeout 300"
 
 # 2. Disable lockscreen (GNOME/Ubuntu specific keys found on device)
 echo "Disabling lockscreen..."
