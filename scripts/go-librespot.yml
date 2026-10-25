@@ -1,8 +1,7 @@
 device_name: "Parlantes"
 bitrate: 320
-player:
-  backend: "pulseaudio"
-  initial_volume: 90
-  normalisation: true
+audio_backend: "pulseaudio"
+initial_volume: 90
+normalisation_disabled: false
 server:
   enabled: true

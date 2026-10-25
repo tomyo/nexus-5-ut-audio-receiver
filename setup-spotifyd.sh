@@ -32,8 +32,8 @@ echo "[3/4] Deploying go-librespot binary and configuration..."
 sed -i "s/device_name: .*/device_name: \"$DEVICE_NAME\"/" scripts/go-librespot.yml
 sed -i "s/bitrate: .*/bitrate: $BITRATE/" scripts/go-librespot.yml
 if [ ! -f "go-librespot" ]; then
-    echo "go-librespot binary not found locally. Downloading v0.7.1 for armv6..."
-    wget -O go-librespot.tar.gz https://github.com/devgianlu/go-librespot/releases/download/v0.7.1/go-librespot_linux_armv6.tar.gz
+    echo "go-librespot binary not found locally. Downloading v0.10.5 for armv6..."
+    wget -O go-librespot.tar.gz https://github.com/devgianlu/go-librespot/releases/download/v0.10.5/go-librespot_linux_armv6.tar.gz
     tar -xzf go-librespot.tar.gz
 fi
 adb push go-librespot /tmp/go-librespot
