@@ -44,11 +44,14 @@ Installed binary SHA-256:
 Previous binary SHA-256:
 `67db63b4c2af771987d8b307594d54319be6d09286992ea538f896320a8dfc77`
 
-## Verification still needed
+## Verification outcome
 
-Select Parlantes again from Spotify and play a track. Successful startup does
-not establish that the audio-key refusal is fixed or that audible output works.
-The upstream report documents a similar failure, not a confirmed fix:
+Selecting Parlantes again reproduced the refusal on all 51 tracks of the
+context, and the client then stopped by design. The update did not fix it.
+The issue is not client-specific: see
+`diagnostics/spotify-audio-key-root-cause.md` for the confirmed root cause,
+the independent librespot cross-check, and what was ruled out. The upstream
+report referenced here documents a similar failure, not a fix:
 https://github.com/devgianlu/go-librespot/issues/235
 
 ## Rollback
