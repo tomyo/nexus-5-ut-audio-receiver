@@ -58,6 +58,35 @@ Three constraints are not obvious and were each learned the hard way:
 
 Diagnosing this is misleading by hand: running `sudo` from an SSH login as `phablet` **works**, because `sudo` inherits `HOME=/home/phablet` and finds the cookie — the same command inside the Upstart job never sees that environment. Reproduce with a clean environment: `sudo env -i HOME=/ PULSE_SERVER=… aplay -D pulse <file>` fails, `sudo -H -u phablet env -i HOME=/home/phablet … aplay -D pulse <file>` plays.
 
+### Audio glitches: two separate defects
+
+Occasional chop has two unrelated causes here, and they are easy to confuse by
+ear. `/var/log/upstart/shairport-sync.log` shows the receiver side; Music
+Assistant's log shows the bridge side. `scripts/watch-audio-glitches.sh`
+tails the MA side and prepends local timestamps, so a glitch you hear can be
+matched to the event that caused it.
+
+1. **Start of a track is truncated.** MA logs `dropped NNNNms of audio`, ~1.4 s
+   here. The AirPlay provider reserves `AIRPLAY_COLD_GROUP_START_LEAD_MS`
+   (2500 ms, in `providers/airplay/constants.py`) because a buffered receiver
+   needs that long to seat its clock, but the Sendspin timeline hands over the
+   first chunk ~1070 ms out, so the difference is discarded. That constant is
+   sized for PTP-locking receivers; shairport-sync is RAOP-only and cannot be
+   configured out of it. Treat it as a fixed cost of the bridged AirPlay path.
+2. **Mid-stream timeline snap.** MA logs `Realigned NNNNNN µs of Sendspin
+   timeline drift` (1.93 s observed). This is the audible jump. Lever: the
+   per-player **Buffer depth** setting (`buffer_depth`, AirPlay provider,
+   `advanced`), which deepens the receiver queue so drift is absorbed instead
+   of corrected. Presets: `0` (automatic), then 500…3000 ms; 0 is what an
+   unconfigured player uses. Set it in **Settings → Players → Parlantes**, and
+   the change needs a player reload. Deeper queue = more latency, so raise it
+   only as far as needed.
+3. **Wi-Fi power save.** `iw dev wlan0 get power_save` reported `on` while the
+   signal was already excellent (-36 dBm, 0% loss, 1.1 ms RTT), so the jitter
+   was the radio napping between beacons, not the link. Step 7 installs
+   `/etc/init/wifi-powersave.conf` and applies it immediately. Cost: a few
+   percent of idle battery. Revert with `sudo iw dev wlan0 set power_save on`.
+
 Verified from a cold boot: Avahi and shairport-sync both running ~40 s after reboot, advertising, `module-suspend-on-idle` not loaded, `sink.primary` `IDLE`, and a test tone reaching the stereo.
 
 The two input paths are **mutually exclusive in practice**: `bt-wifi-sync` drops Wi-Fi while Bluetooth audio streams, which would kill an AirPlay session. Use one mode at a time.

@@ -29,24 +29,24 @@ as_root() {
 echo "--- Nexus 5 AirPlay Receiver Setup: $DEVICE_NAME ($PHONE) ---"
 
 # 1. Remount system as RW (read-only by default on Ubuntu Touch)
-echo "[1/6] Remounting system as Read-Write..."
+echo "[1/8] Remounting system as Read-Write..."
 as_root mount -o remount,rw /
 
 # 2. Install package prerequisites
-echo "[2/6] Installing shairport-sync and its backends..."
+echo "[2/8] Installing shairport-sync and its backends..."
 # shairport-sync 2.8.0 links libpulse-simple, libsoxr and libconfig.
 as_root apt-get install -y --no-install-recommends \
     shairport-sync libasound2-plugins libsoxr0 >/dev/null
 
 # 3. Install the application config
-echo "[3/6] Installing /etc/shairport-sync.conf..."
+echo "[3/8] Installing /etc/shairport-sync.conf..."
 scp -q -o BatchMode=yes scripts/shairport-sync.conf "$PHONE:/tmp/shairport-sync.conf"
 as_root mv /tmp/shairport-sync.conf /etc/shairport-sync.conf
 as_root chown root:root /etc/shairport-sync.conf
 as_root chmod 644 /etc/shairport-sync.conf
 
 # 4. Install the Upstart job
-echo "[4/6] Installing /etc/init/shairport-sync.conf..."
+echo "[4/8] Installing /etc/init/shairport-sync.conf..."
 scp -q -o BatchMode=yes scripts/shairport-sync-service.conf "$PHONE:/tmp/shairport-sync-service.conf"
 as_root mv /tmp/shairport-sync-service.conf /etc/init/shairport-sync.conf
 as_root chown root:root /etc/init/shairport-sync.conf
@@ -59,7 +59,7 @@ as_root chmod 644 /etc/init/shairport-sync.conf
 # Avahi, and the shairport-sync job waits on `started avahi-daemon`, so without
 # this the receiver never advertises and the job never runs after a reboot.
 # Looked like a broken job; was a missing dependency.
-echo "[5/7] Enabling avahi-daemon at boot..."
+echo "[5/8] Enabling avahi-daemon at boot..."
 { echo "$SUDO_PIN"; cat <<'AVAHI_EOF'
 set -e
 f=/etc/init/avahi-daemon.override
@@ -78,7 +78,7 @@ as_root initctl start avahi-daemon >/dev/null 2>&1 || true
 # new stream then pays a resume cost, and the start of the first AirPlay track
 # gets clipped. The startup script that PulseAudio actually reads is patched
 # (see step 6), because this project pins default-script-file to touch.pa.
-echo "[6/7] Disabling module-suspend-on-idle..."
+echo "[6/8] Disabling module-suspend-on-idle..."
 { echo "$SUDO_PIN"; cat <<'PULSE_EOF'
 set -e
 # Patch whichever startup script PulseAudio actually reads. That is NOT
@@ -101,8 +101,24 @@ PULSE_EOF
 ssh -o BatchMode=yes "$PHONE" \
     'export PULSE_RUNTIME_PATH=/run/user/32011/pulse/; pactl unload-module module-suspend-on-idle 2>/dev/null || true; pactl suspend-sink sink.primary 0 2>/dev/null || true'
 
-# 7. Replace any hand-started instance with the managed job
-echo "[7/7] Starting the shairport-sync job..."
+# 7. Disable Wi-Fi power save
+#
+# With power save on, the radio naps between beacons and the receive path
+# stutters. The AirPlay bridge can only answer that by truncating the start of a
+# track or realigning its timeline mid-stream, and both are audible. Measured
+# cause on this device: -36 dBm signal with 0% packet loss, so the jitter was
+# power save and not the link.
+echo "[7/8] Disabling Wi-Fi power save..."
+scp -q -o BatchMode=yes scripts/wifi-powersave.conf "$PHONE:/tmp/wifi-powersave.conf"
+as_root mv /tmp/wifi-powersave.conf /etc/init/wifi-powersave.conf
+as_root chown root:root /etc/init/wifi-powersave.conf
+as_root chmod 644 /etc/init/wifi-powersave.conf
+as_root initctl reload-configuration
+# Take effect now as well as at the next wlan0 up event.
+as_root /sbin/iw dev wlan0 set power_save off
+
+# 8. Replace any hand-started instance with the managed job
+echo "[8/8] Starting the shairport-sync job..."
 as_root initctl reload-configuration
 # -x matches the exact process name: pkill -f would also match this shell,
 # because the pattern appears in its own command line.
@@ -120,6 +136,11 @@ echo -n "advert:    "
 ssh -o BatchMode=yes "$PHONE" "avahi-browse -rt _raop._tcp 2>/dev/null | grep -m1 '^=' || echo 'not advertising'"
 echo -n "job state: "
 as_root status shairport-sync | head -n 1
+echo -n "power save: "
+ssh -o BatchMode=yes "$PHONE" "iw dev wlan0 get power_save"
+echo -n "suspend-on-idle: "
+ssh -o BatchMode=yes "$PHONE" \
+    'export PULSE_RUNTIME_PATH=/run/user/32011/pulse/; pactl list short modules | grep -c suspend-on-idle'
 
 echo
 echo "Done. Pick 'Parlantes' as the AirPlay target, or let Music Assistant find it."
