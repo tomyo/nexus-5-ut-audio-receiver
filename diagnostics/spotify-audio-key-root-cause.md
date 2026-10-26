@@ -39,6 +39,27 @@ Practical consequence: the phone's Spotify daemon is retired
 `scripts/retire-spotifyd.sh` asserts removal). Spotify reaches the stereo through
 Music Assistant -> AirPlay -> `Parlantes`, and that path works.
 
+### Follow-up, 2026-10-26: MA's Connect is Soloist too
+
+A plausible objection to the verdict above is that Music Assistant might have
+restored the librespot family and made the whole diagnosis moot. It did not.
+Checking the running MA container shows Spotify's Soloist daemon serving
+**Connect** as well:
+
+```text
+/data/soloist/soloist --device-name "Music Assistant | Toda la Casa"
+  --data-dir /data/spotify_connect/spotify_connect_syncgroup_rtnnddql/soloist-data
+  --cache-dir /data/.cache/spotify_connect_... --cache-size 512 --initial-volume 100
+```
+
+One `soloist` process per player listed in
+`spotify_connect.connected_players`, version 1.3.10.16, alongside a Soloist
+Crashpad handler. `go-librespot` is still present at `/usr/local/bin` in the
+image but nothing executes it. So the discriminator is the **implementation**, in
+both roles: library playback and phone casting/Jam alike are licence-negotiated
+by Spotify's SDK, which is exactly why the account never needed to be replaced
+and why the standalone clients on the phone could not be fixed from there.
+
 ## Original verdict (2026-10-25) - SUPERSEDED, DO NOT TRUST
 
 The text from here to "Ruled out" is preserved as written at the time. It is

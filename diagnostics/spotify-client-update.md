@@ -60,6 +60,12 @@ cross-check there remains valid, only its interpretation changed. The upstream
 report referenced here documents a similar failure, not a fix:
 https://github.com/devgianlu/go-librespot/issues/235
 
+This file is therefore a closed chapter, not a pending update. MA's **Spotify
+Connect** is Soloist as well (`/data/soloist/soloist`, v1.3.10.16, one process per
+connected player), so the v0.10.5 binary discussed below has no role left to
+play: casting and Jam work through MA without any client on the phone. Nothing
+here should be re-attempted.
+
 ## Rollback
 
 **No longer applicable as written (2026-10-26):** the backups this section refers

@@ -41,7 +41,17 @@ Spotify is served by Music Assistant on `home-zotac-01`, not by this phone. MA's
 Spotify provider with the **Soloist** engine plays fine; the reverse-engineered
 clients (`go-librespot`, `librespot`) never did, and both `setup-spotifyd.sh` and
 the installed service are now **retired**. The script is kept for reference only
-and nothing from it is installed on the device. Historical note: its filename
+and nothing from it is installed on the device.
+
+Spotify **Connect** is Soloist too, so casting from a phone (and Spotify Jam) does
+not need a client here at all. Verified on `home-zotac-01` 2026-10-26: one
+`soloist` process per connected player, for example
+`/data/soloist/soloist --device-name "Music Assistant | Toda la Casa" --data-dir
+/data/spotify_connect/spotify_connect_syncgroup_rtnnddql/soloist-data`, version
+1.3.10.16. The `go-librespot` binary still shipped in the MA image is not what
+runs. The phone lost nothing when the daemon was removed: both the library path
+and the casting path go through Spotify's own SDK, and the stereo is reached over
+AirPlay as `Parlantes`. Historical note: its filename
 does not mean the service was ever `spotifyd` - it ran `go-librespot`, which
 also published `parlantes.local` through its own Zeroconf library and caused an
 Avahi hostname conflict against `avahi-daemon`.
