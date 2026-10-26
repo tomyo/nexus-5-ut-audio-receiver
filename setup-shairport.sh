@@ -59,6 +59,13 @@ as_root chmod 644 /etc/init/shairport-sync.conf
 # Avahi, and the shairport-sync job waits on `started avahi-daemon`, so without
 # this the receiver never advertises and the job never runs after a reboot.
 # Looked like a broken job; was a missing dependency.
+#
+# Also pins the mDNS hostname. The stock name loses an Avahi name-conflict
+# probe and the daemon renames itself to <name>-2 on every restart, so the
+# SRV record in the AirPlay advertisement keeps changing and Music Assistant
+# fails with "cliairplay: Cannot resolve hostname". A name nothing else
+# claims stays stable; apps/music-assistant/compose.yaml pins the same name
+# in extra_hosts because that container has no mDNS resolver.
 echo "[5/8] Enabling avahi-daemon at boot..."
 { echo "$SUDO_PIN"; cat <<'AVAHI_EOF'
 set -e
@@ -68,6 +75,18 @@ if [ -f "$f" ]; then
     rm -f "$f"
     initctl reload-configuration
 fi
+
+c=/etc/avahi/avahi-daemon.conf
+if ! grep -qx 'host-name=parlantes-n5' "$c"; then
+    cp -n "$c" "$c.pre-receiver"
+    if grep -qE '^[[:space:]]*host-name=' "$c"; then
+        sed -i 's|^[[:space:]]*host-name=.*|host-name=parlantes-n5|' "$c"
+    else
+        sed -i 's|^\[server\]|[server]\nhost-name=parlantes-n5|' "$c"
+    fi
+    initctl restart avahi-daemon
+fi
+grep -qx 'host-name=parlantes-n5' "$c" || { echo "host-name pin failed" >&2; exit 1; }
 AVAHI_EOF
 } | ssh -o BatchMode=yes "$PHONE" "sudo -S -p '' bash -s"
 as_root initctl start avahi-daemon >/dev/null 2>&1 || true
