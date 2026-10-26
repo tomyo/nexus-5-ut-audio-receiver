@@ -52,32 +52,57 @@ as_root mv /tmp/shairport-sync-service.conf /etc/init/shairport-sync.conf
 as_root chown root:root /etc/init/shairport-sync.conf
 as_root chmod 644 /etc/init/shairport-sync.conf
 
-# 5. Stop PulseAudio parking the sink when idle
+# 5. Let mDNS start at boot
+#
+# Ubuntu Touch ships /etc/init/avahi-daemon.override containing "manual" -
+# "do not start avahi-daemon on boot" - to save power. AirPlay discovery needs
+# Avahi, and the shairport-sync job waits on `started avahi-daemon`, so without
+# this the receiver never advertises and the job never runs after a reboot.
+# Looked like a broken job; was a missing dependency.
+echo "[5/7] Enabling avahi-daemon at boot..."
+{ echo "$SUDO_PIN"; cat <<'AVAHI_EOF'
+set -e
+f=/etc/init/avahi-daemon.override
+if [ -f "$f" ]; then
+    cp -n "$f" "$f.pre-receiver"
+    rm -f "$f"
+    initctl reload-configuration
+fi
+AVAHI_EOF
+} | ssh -o BatchMode=yes "$PHONE" "sudo -S -p '' bash -s"
+as_root initctl start avahi-daemon >/dev/null 2>&1 || true
+
+# 6. Stop PulseAudio parking the sink when idle
 #
 # PulseAudio parks sink.primary a few seconds after the last stream ends. Every
 # new stream then pays a resume cost, and the start of the first AirPlay track
-# gets clipped. /etc/pulse/default.pa is patched directly rather than shadowed
-# by a per-user default.pa: a broken include there would leave the phone with no
-# audio at all, which is a far worse failure than a clipped note.
-echo "[5/6] Disabling module-suspend-on-idle..."
+# gets clipped. The startup script that PulseAudio actually reads is patched
+# (see step 6), because this project pins default-script-file to touch.pa.
+echo "[6/7] Disabling module-suspend-on-idle..."
 { echo "$SUDO_PIN"; cat <<'PULSE_EOF'
 set -e
-f=/etc/pulse/default.pa
-cp -n "$f" "$f.pre-receiver"
-# Address the active load line only, so re-running cannot nest comments.
-sed -i '/^load-module module-suspend-on-idle$/s|^|# Disabled for the AirPlay receiver: suspending sink.primary clips the\n# start of each track.\n#|' "$f"
-# Assert the invariant, not the exact comment wording, so a differently worded
-# patch still counts as done.
-! grep -q '^load-module module-suspend-on-idle$' "$f"
+# Patch whichever startup script PulseAudio actually reads. That is NOT
+# necessarily /etc/pulse/default.pa: this project's user override in
+# ~/.config/pulse/daemon.conf pins default-script-file = /etc/pulse/touch.pa,
+# so patching default.pa silently changed nothing and the module came back on
+# the next boot.
+script=$(cat /home/phablet/.config/pulse/daemon.conf /etc/pulse/daemon.conf 2>/dev/null \
+    | grep -m1 '^[[:space:]]*default-script-file' | cut -d= -f2 | tr -d ' ')
+[ -n "$script" ] || script=/etc/pulse/default.pa
+echo "pulse startup script: $script"
+cp -n "$script" "$script.pre-receiver"
+sed -i '/^load-module module-suspend-on-idle$/s|^|# Disabled for the AirPlay receiver: suspending sink.primary clips the\n# start of each track.\n#|' "$script"
+! grep -q '^load-module module-suspend-on-idle$' "$script"
 PULSE_EOF
 } | ssh -o BatchMode=yes "$PHONE" "sudo -S -p '' bash -s"
 # Take effect immediately too, without restarting PulseAudio, which would cut a
-# live session: the module can also be unloaded at runtime.
+# live session. Unloading does not resume a sink that is already parked, so the
+# resume is explicit.
 ssh -o BatchMode=yes "$PHONE" \
-    'PULSE_RUNTIME_PATH=/run/user/32011/pulse/ pactl unload-module module-suspend-on-idle 2>/dev/null || true'
+    'export PULSE_RUNTIME_PATH=/run/user/32011/pulse/; pactl unload-module module-suspend-on-idle 2>/dev/null || true; pactl suspend-sink sink.primary 0 2>/dev/null || true'
 
-# 6. Replace any hand-started instance with the managed job
-echo "[6/6] Starting the shairport-sync job..."
+# 7. Replace any hand-started instance with the managed job
+echo "[7/7] Starting the shairport-sync job..."
 as_root initctl reload-configuration
 # -x matches the exact process name: pkill -f would also match this shell,
 # because the pattern appears in its own command line.

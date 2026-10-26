@@ -51,8 +51,11 @@ AirPlay (iOS/macOS/Music Assistant) -> shairport-sync -> ALSA "pulse" plugin
 Three constraints are not obvious and were each learned the hard way:
 
 - shairport-sync **2.8.0** (the only armhf build Xenial offers) has **no native PulseAudio backend**. `pulseaudio` is not a valid `output_backend`; ALSA is the only synchronised backend, so it writes to ALSA's `pulse` PCM plugin and therefore needs `libasound2-plugins`.
-- PulseAudio's `module-suspend-on-idle` parks `sink.primary` seconds after playback stops, and every new stream then clips its first note. `/etc/pulse/default.pa` has that load line commented out (backup: `/etc/pulse/default.pa.pre-receiver`). A pristine copy is kept so the patch can be re-applied.
+- PulseAudio's `module-suspend-on-idle` parks `sink.primary` seconds after playback stops, and every new stream then clips its first note. The load line is commented out in the startup script PulseAudio **actually reads** — which is `/etc/pulse/touch.pa`, not `/etc/pulse/default.pa`, because `~/.config/pulse/daemon.conf` pins `default-script-file = /etc/pulse/touch.pa`. Patching `default.pa` looked correct, verified clean, and silently did nothing; the module reappeared on the next boot. `setup-shairport.sh` now resolves the script from `daemon.conf` instead of assuming. Backups: `/etc/pulse/touch.pa.pre-receiver` (the former holds the pristine copy).
+- Ubuntu Touch ships `/etc/init/avahi-daemon.override` containing `manual` — "do not start avahi-daemon on boot" — to save power. The shairport-sync job waits on `started avahi-daemon`, so with Avahi off the job **never starts and never advertises**, which looks exactly like a broken job. The installer deletes the override (backup `.pre-receiver`) and starts Avahi. This also makes `.local` names resolve from other devices.
 - The Upstart job must set `PULSE_SERVER=unix:/run/user/32011/pulse/native`. There is no session environment in an Upstart job, so shairport-sync would otherwise look for its own socket path and fail.
+
+Verified from a cold boot: Avahi and shairport-sync both running ~40 s after reboot, advertising, `module-suspend-on-idle` not loaded, `sink.primary` `IDLE`, and a test tone reaching the stereo.
 
 The two input paths are **mutually exclusive in practice**: `bt-wifi-sync` drops Wi-Fi while Bluetooth audio streams, which would kill an AirPlay session. Use one mode at a time.
 
