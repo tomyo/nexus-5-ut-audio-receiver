@@ -1,6 +1,6 @@
 # Nexus 5 Ubuntu Touch Audio Receiver
 
-A Nexus 5 (hammerhead) running Ubuntu Touch sends audio to a stereo through its 3.5 mm jack. Two input paths exist: Bluetooth A2DP, and Wi-Fi via AirPlay (`shairport-sync`, used by Music Assistant). Optional Spotify Connect uses a separate go-librespot installer.
+A Nexus 5 (hammerhead) running Ubuntu Touch sends audio to a stereo through its 3.5 mm jack. Two input paths exist: Bluetooth A2DP, and Wi-Fi via AirPlay (`shairport-sync`, used by Music Assistant). Spotify is not an input path here: Music Assistant on `home-zotac-01` serves both library playback and Spotify Connect (Soloist), and this phone is only the AirPlay speaker.
 
 ## Stable Playback Contract
 
