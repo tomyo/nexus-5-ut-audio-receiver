@@ -47,18 +47,29 @@ Previous binary SHA-256:
 ## Verification outcome
 
 Selecting Parlantes again reproduced the refusal on all 51 tracks of the
-context, and the client then stopped by design. The update did not fix it.
-The issue is not client-specific: see
-`diagnostics/spotify-audio-key-root-cause.md` for the confirmed root cause,
-the independent librespot cross-check, and what was ruled out. The upstream
+context, and the client then stopped by design. The update did not fix it, and
+no go-librespot version could have: the refusal is a missing PlayPlay /
+LicenseVersion 2 implementation, not a version defect.
+
+**Corrected 2026-10-26:** the follow-on conclusion that Spotify had blocked this
+account was wrong. Music Assistant now plays the same account through Spotify's
+own Soloist SDK. The refusal is specific to the librespot family, which is why
+both `go-librespot` and `librespot` failed identically. See the Correction at the
+top of `diagnostics/spotify-audio-key-root-cause.md`; the independent librespot
+cross-check there remains valid, only its interpretation changed. The upstream
 report referenced here documents a similar failure, not a fix:
 https://github.com/devgianlu/go-librespot/issues/235
 
 ## Rollback
 
-On the phone, stop `spotifyd`, remount `/` writable, restore the backed-up
-`go-librespot` to `/usr/bin/go-librespot` with root ownership and mode 755,
-and restore the backed-up `config/config.yml` to
+**No longer applicable as written (2026-10-26):** the backups this section refers
+to were deleted during the deliberate removal of the daemon. To revisit the
+experiment, re-run `bash setup-spotifyd.sh --force`, which re-downloads v0.10.5
+and reinstalls the job from `scripts/`.
+
+Historically: on the phone, stop `spotifyd`, remount `/` writable, restore the
+backed-up `go-librespot` to `/usr/bin/go-librespot` with root ownership and mode
+755, and restore the backed-up `config/config.yml` to
 `/home/phablet/.config/go-librespot/config.yml` with phablet ownership.
 Restore the root filesystem to read-only and start `spotifyd` again.
 The service definition was not modified. Preserve newer credentials/state

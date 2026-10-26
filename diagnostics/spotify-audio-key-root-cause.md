@@ -1,6 +1,48 @@
 # Spotify audio-key refusal: root cause, 2026-10-25
 
-## Verdict (as of this date)
+## Correction, 2026-10-26: the account was never the problem
+
+**The verdict below is wrong, and is kept only as a record of the evidence.** It
+concluded that Spotify blocked playback at the account level. It did not.
+
+The discriminator missing on 2026-10-25 was not a second Spotify account but a
+third implementation. Music Assistant on `home-zotac-01` plays this same account
+through its Spotify provider using **Spotify's own Soloist SDK**
+(<https://developer.spotify.com/documentation/soloist>), with the same
+`country: AR` / `pr:premium` token, and it plays the very tracks both
+reverse-engineered clients refused.
+
+```
+INFO (MainThread) [music_assistant.spotify] Successfully logged in to Spotify as Tomás Hayes
+INFO (MainThread) [music_assistant.spotify] Developer Spotify session active.
+INFO (MainThread) [music_assistant] Loaded music provider Spotify
+```
+
+What survives the correction, unchanged:
+
+- The refusal is real, reproducible and not track-specific. `error audio key 0 1`
+  is what `librespot` and `go-librespot` get on this account.
+- It is not caused by the phone, PulseAudio, the bitrate, the country, or the
+  file selection. Those exclusions still stand.
+- Both clients fail identically, so it is not one project's bug.
+
+What was wrong: "no local configuration change can fix it" is true, but
+"Spotify refuses this account" does not follow. The narrow, correct statement is
+that **these clients cannot complete this account's licensing flow, and
+Spotify's own SDK can.** The account's `financial-product` pins an `rt:v2_…`
+(PlayPlay / LicenseVersion 2) flow; the librespot family has no PlayPlay
+implementation, so it receives a key refusal where Soloist performs a licence
+negotiation. No account was ever blocked, and a second account was never needed.
+
+Practical consequence: the phone's Spotify daemon is retired
+(`setup-spotifyd.sh` refuses to run without `--force`, and
+`scripts/retire-spotifyd.sh` asserts removal). Spotify reaches the stereo through
+Music Assistant -> AirPlay -> `Parlantes`, and that path works.
+
+## Original verdict (2026-10-25) - SUPERSEDED, DO NOT TRUST
+
+The text from here to "Ruled out" is preserved as written at the time. It is
+retained because the evidence it cites is valid; only its conclusion is wrong.
 
 Spotify accepts the session, serves track metadata, serves the CDN file URL,
 and lets the client download the **entire encrypted audio file**, but refuses
@@ -20,6 +62,10 @@ Spotify Connect playback on this device is therefore **blocked by an upstream
 policy**, pending either an upstream implementation of the newer license
 exchange (`PlayPlay` / `LicenseVersion 2`) or an account that is not subject to
 it.
+
+*(Wrong as a diagnosis: the blocking factor is the clients' missing PlayPlay
+support, not a policy on the account. the account plays fine through Spotify's
+own SDK. See the Correction at the top.)*
 
 ## Evidence 1 — the phone's client (go-librespot v0.10.5)
 
@@ -85,9 +131,12 @@ financial-product: pr:premium,tc:0,rt:v2_AR_default_new-family-sub-1m_0_ARS_defa
 ```
 
 The subscription is a premium **family** plan, `family-sub-1m`, on a
-newly-created account. This matches the reported condition exactly: newly
-provisioned Premium accounts are served the newer license flow, while older
-accounts keep receiving legacy AES keys.
+newly-created account, and `rt:v2_…` marks the PlayPlay / LicenseVersion 2
+licensing flow. That part was read correctly: this account is served the newer
+flow. What was misread is *who fails* it. Soloist completes that flow; the
+librespot family never implemented it, so they are refused rather than
+negotiated with. The upstream reports below therefore describe a client gap that
+correlates with new accounts - not an account ban.
 
 Upstream reports:
 
@@ -110,7 +159,7 @@ Upstream reports:
 | Wrong country / no streaming rights | Same account plays normally in the official Pixel 7a app; `country: AR`, `player-license: premium` |
 | Free / expired account | Token reports `pr:premium`, `catalogue: premium`, `name: Spotify Premium` |
 | Stale go-librespot build | v0.10.5 (current, includes the file-id/`alternative` fix from #235) fails the same way |
-| Client-implementation bug | Independent Rust client fails identically on the same track |
+| A defect in one client | Both clients fail identically - but "both fail" only proves they share a limitation, not that the account is refused. Soloist, a third implementation, plays the same track (see Correction) |
 | Wrong file selected (issue #235) | Requested file id `88bcd787b5febf33bfe58300b3218fd26004f9f2` downloads complete; only the key is denied |
 
 ## No usable newer spotifyd exists for this phone
@@ -136,29 +185,35 @@ Any librespot-family client on this phone would have to be cross-compiled
 against glibc ≤ 2.23 (or fully static, musl) — and, per the evidence above,
 it would fail anyway for this account.
 
-## Remaining uncertainty
+## What resolved it, and what is still unknown
 
-The single untested discriminator was **a second, older Spotify account**. The
-account holder does not have one, so account-specificity remains strongly
-indicated rather than proven. It is evidenced by:
+A second account was never required. The missing control was an implementation
+that *supports* the flow, and Music Assistant's Spotify provider (Soloist) is
+one, running the same account.
 
-- the `family-sub-1m` newly-provisioned subscription signature,
-- the same failure across two independent client implementations,
-- the same account working normally in the official Spotify app,
-- the public reports correlating new accounts with this exact refusal.
+The original reasoning contained a trap: "the same account works in the official
+Spotify app" was read as evidence *for* an account-level policy, when it was
+evidence *against* one, because the official app uses Spotify's own playback SDK
+exactly as Soloist does. Two observations said "Spotify's SDK plays this
+account" and one said "reverse-engineered clients do not"; that is a statement
+about the clients.
 
-If a second account ever becomes available, the check costs ~5 minutes and
-needs no phone changes: re-run the container recipe above, transfer playback to
-`TEST-librespot`, and look for `Loading <track>` followed by a decoded stream
-instead of `error audio key 0 1`.
+Still unknown, and irrelevant to the working setup: whether the librespot family
+could ever complete PlayPlay, and whether the refusal is a hard block or a
+failed negotiation. go-librespot issue #317 tracks the missing implementation;
+the practical resolution here was to stop using those clients.
 
 ## If this is ever retried
 
-Watch for upstream implementing `PlayPlayRequest` / license-version 2, the
-protocol that carries the key for gated accounts. Neither librespot nor
-go-librespot had implemented it as of 2026-10-25. Until then, no version of
-either client will play this account, and only Bluetooth (the device's primary
-purpose) produces audio.
+PlayPlay / LicenseVersion 2 is the protocol that carries the key for these
+accounts. Soloist implements it; neither librespot nor go-librespot had as of
+2026-10-25. Anyone retrying a librespot-family client should first confirm
+PlayPlay support upstream (go-librespot #317), otherwise the result is the same
+`error audio key 0 1`.
+
+Audio on this device no longer depends on any of it: AirPlay -> `Parlantes`
+carries Spotify from Music Assistant, and the receiver path is independent of
+Spotify entirely.
 
 ## State at time of writing
 
@@ -167,3 +222,15 @@ purpose) produces audio.
 - Workstation: test container stopped and removed; firewall port 39999 closed
   (persisted ports unchanged: `1025-65535/tcp`, `1025-65535/udp`).
 - Superseded binaries parked on the phone as `*.bak` files listed above.
+
+### State after the correction (2026-10-26)
+
+- `go-librespot`, its `~/.config/go-librespot` identity and the `spotifyd`
+  Upstart job are **removed** from the phone; `scripts/retire-spotifyd.sh`
+  asserts that state and frees ~59 MB.
+- Spotify plays through Music Assistant on `home-zotac-01` using Soloist, then
+  AirPlay to `Parlantes` (see the AirPlay section of `README.md`).
+- `scripts/verify-receiver.sh` checks the receiver invariants, including that no
+  `_spotify-connect` advertisement has come back.
+- The table above about glibc and prebuilt clients is still accurate but now
+  only historical: no librespot-family client is needed on the phone.
