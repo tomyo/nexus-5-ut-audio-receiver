@@ -37,7 +37,48 @@ Setup preserves saved Bluetooth bonds, installs the tested user resampler overri
 
 SSH on Ubuntu Touch also depends on its persistent service property and authorized keys; see `diagnostics/ssh-access.md`. A `.local` hostname requires Avahi actually enabled; a hostname alone does not prove mDNS works. Never remove the lockscreen before verifying a separate administrator login. Setup creates a locked rescue account, not a default-password backdoor; set its password interactively first.
 
-Spotify installation remains separate: `bash setup-spotifyd.sh`. Its historical filename does not mean the active service is spotifyd. Spotify and fresh-install behavior are not certified by Bluetooth unit tests.
+Spotify is served by Music Assistant on `home-zotac-01`, not by this phone. MA's
+Spotify provider with the **Soloist** engine plays fine; the reverse-engineered
+clients (`go-librespot`, `librespot`) never did, and both `setup-spotifyd.sh` and
+the installed service are now **retired**. The script is kept for reference only
+and nothing from it is installed on the device. Historical note: its filename
+does not mean the service was ever `spotifyd` - it ran `go-librespot`, which
+also published `parlantes.local` through its own Zeroconf library and caused an
+Avahi hostname conflict against `avahi-daemon`.
+
+## Replay Safety
+
+The installers are idempotent by intent: replaying them must leave the device in
+the same state rather than reintroduce known-broken settings. These guards exist
+because each one was, at some point, a real regression:
+
+- `setup.sh` resolves the PulseAudio startup script from
+  `~/.config/pulse/daemon.conf` before patching it. Hardcoding
+  `/etc/pulse/default.pa` was a silent no-op, because that file is never read.
+- `setup.sh` and `setup-shairport.sh` both delete
+  `/etc/init/avahi-daemon.override` and pin `host-name` to `DEVICE_NAME`
+  (lowercased). The AirPlay job waits on `started avahi-daemon`, and an unpinned
+  name lets Avahi rename itself to `<name>-2`, which changes the AirPlay SRV
+  record and breaks Music Assistant with `Cannot resolve hostname`.
+- The phone address lives only in `scripts/config.env` (`PHONE_HOST`). It used to
+  be repeated in every installer, and they drifted out of date.
+- `setup-spotifyd.sh` refuses to run without `--force`: the clients it installs
+  cannot play, and its Zeroconf library caused an Avahi hostname conflict.
+
+Two scripts support this:
+
+| Script | Purpose |
+|---|---|
+| `scripts/verify-receiver.sh` | Read-only. Asserts ~18 invariants (job running, advert present, suspend-on-idle disabled, Wi-Fi power save off, retired daemon absent) and exits non-zero on any failure. Run after every replay and after every reboot. |
+| `scripts/retire-spotifyd.sh` | Idempotent removal of the retired Spotify Connect daemon, including the read-only remount dance. |
+
+```bash
+bash scripts/verify-receiver.sh
+```
+
+Known limitation, not fixed by design: `bt-wifi-sync` turns Wi-Fi off while
+Bluetooth streams, which kills AirPlay during a Bluetooth session. In Wi-Fi-first
+mode the job is inert unless something actually pairs over Bluetooth.
 
 ## AirPlay (Wi-Fi) Path
 

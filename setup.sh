@@ -64,6 +64,39 @@ if confirm "[1/6] Configure Bluetooth Identity (Name, Class, mDNS, SSH)?"; then
         adb shell "echo $SUDO_PIN | sudo -S apt-get update"
         adb shell "echo $SUDO_PIN | sudo -S apt-get install -y avahi-daemon libnss-mdns"
     fi
+
+    # Ubuntu Touch ships /etc/init/avahi-daemon.override containing "manual"
+    # ("do not start avahi-daemon on boot") to save power. The AirPlay job waits
+    # on `started avahi-daemon`, so leaving the override in place means the
+    # receiver never starts and never advertises after a reboot - which looks
+    # exactly like a broken job.
+    #
+    # The mDNS name is pinned to the same name used everywhere else
+    # (DEVICE_NAME, lowercased). Unpinned, Avahi can lose its conflict probe and
+    # rename itself to <name>-2 on restart, which changes the AirPlay SRV record
+    # and makes Music Assistant fail with "cliairplay: Cannot resolve hostname".
+    echo "Enabling mDNS at boot and pinning the mDNS name..."
+    { echo "$SUDO_PIN"; cat <<'AVAHI_EOF'
+set -e
+name="$1"
+f=/etc/init/avahi-daemon.override
+if [ -f "$f" ]; then
+    cp -n "$f" "$f.pre-receiver"
+    rm -f "$f"
+    initctl reload-configuration
+fi
+c=/etc/avahi/avahi-daemon.conf
+if ! grep -qx "host-name=$name" "$c"; then
+    cp -n "$c" "$c.pre-receiver"
+    if grep -qE '^[[:space:]]*host-name=' "$c"; then
+        sed -i "s|^[[:space:]]*host-name=.*|host-name=$name|" "$c"
+    else
+        sed -i "s|^\[server\]|[server]\nhost-name=$name|" "$c"
+    fi
+fi
+grep -qx "host-name=$name" "$c"
+AVAHI_EOF
+    } | adb shell "sudo -S -p '' bash -s ${DEVICE_NAME,,}"
     adb shell "echo $SUDO_PIN | sudo -S initctl restart avahi-daemon || echo $SUDO_PIN | sudo -S service avahi-daemon restart || true"
     echo "Ensuring mDNS is prioritized in nsswitch.conf..."
     adb shell "echo $SUDO_PIN | sudo -S sed -i 's/^hosts:.*/hosts: files mdns_minimal [NOTFOUND=return] dns /' /etc/nsswitch.conf"
@@ -85,10 +118,17 @@ if confirm "[2/6] Optimize PulseAudio engine & fix A2DP stability?"; then
     adb shell "echo $SUDO_PIN | sudo -S bash -c \"echo -e 'resample-method = speex-fixed-4\ndefault-sample-rate = 44100\ndefault-fragments = 10\ndefault-fragment-size-msec = 50' >> /etc/pulse/daemon.conf\""
     adb shell "mkdir -p /home/phablet/.config/pulse"
     adb push scripts/receiver-daemon.conf /home/phablet/.config/pulse/daemon.conf
-    adb shell "echo $SUDO_PIN | sudo -S sed -i 's/^load-module module-udev-detect$/load-module module-udev-detect tsched=0/' /etc/pulse/default.pa"
-    adb shell "echo $SUDO_PIN | sudo -S sed -i 's/^load-module module-udev-detect$/load-module module-udev-detect tsched=0/' /etc/pulse/system.pa"
+
+    # Patch the startup script PulseAudio ACTUALLY reads. It is not necessarily
+    # /etc/pulse/default.pa: receiver-daemon.conf pins
+    # default-script-file = /etc/pulse/touch.pa, so patching default.pa looked
+    # correct, verified clean, and silently changed nothing.
+    PA_SCRIPT=$(adb shell "cat /home/phablet/.config/pulse/daemon.conf /etc/pulse/daemon.conf 2>/dev/null | grep -m1 '^[[:space:]]*default-script-file' | cut -d= -f2 | tr -d ' '" | tr -d '\r')
+    [ -n "$PA_SCRIPT" ] || PA_SCRIPT=/etc/pulse/default.pa
+    echo "PulseAudio startup script: $PA_SCRIPT"
+    adb shell "echo $SUDO_PIN | sudo -S sed -i 's/^load-module module-udev-detect\$/load-module module-udev-detect tsched=0/' $PA_SCRIPT"
     # Fix the PulseAudio crash on A2DP connection by removing the forced profile
-    adb shell "echo $SUDO_PIN | sudo -S sed -i 's/profile=a2dp_sink//; s/^load-module module-bluetooth-policy .*/load-module module-bluetooth-policy/' /etc/pulse/touch.pa"
+    adb shell "echo $SUDO_PIN | sudo -S sed -i 's/profile=a2dp_sink//; s/^load-module module-bluetooth-policy .*/load-module module-bluetooth-policy/' $PA_SCRIPT"
     REBOOT_REQUIRED=1
 fi
 

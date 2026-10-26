@@ -13,6 +13,35 @@ else
     exit 1
 fi
 
+# RETIRED. Do not run this. Music Assistant on the home server now plays
+# Spotify itself using Spotify's own Soloist engine, and the phone's only job is
+# to be an AirPlay receiver.
+#
+# The clients this script installs cannot play at all: Spotify refuses the audio
+# key ("error audio key 0 1"), and go-librespot additionally published
+# parlantes.local through its own Zeroconf library, which collided with
+# avahi-daemon on this device and made Music Assistant fail with
+# "cliairplay: Cannot resolve hostname". See diagnostics/spotify-audio-key-root-cause.md
+# and the Spotify section of README.md.
+#
+# Kept for reference only. To reinstall the broken client deliberately (to
+# reproduce the failure), run: bash setup-spotifyd.sh --force
+if [ "${1:-}" != "--force" ]; then
+    cat <<'MSG'
+Refusing to run: this installer is retired.
+
+Spotify playback is handled by Music Assistant on home-zotac-01. Nothing from
+this script is installed on the phone, and the phone's go-librespot, its config
+and its Upstart job were deliberately removed.
+
+Use scripts/retire-spotifyd.sh to assert that state (idempotent), and
+scripts/verify-receiver.sh to check the AirPlay receiver.
+
+Re-run with --force to install the broken client for reproduction only.
+MSG
+    exit 1
+fi
+
 echo "--- Nexus 5 Spotify Connect Setup: $DEVICE_NAME ---"
 
 # 1. Remount system as RW

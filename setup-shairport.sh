@@ -12,14 +12,16 @@
 
 set -e
 
-PHONE="${PHONE:-phablet@192.168.11.197}"
-
 if [ -f "scripts/config.env" ]; then
     source scripts/config.env
 else
     echo "Error: scripts/config.env not found!"
     exit 1
 fi
+
+# config.env carries PHONE_HOST so the target address lives in one place
+# instead of being repeated (and drifting) across every installer.
+PHONE="${PHONE:-phablet@${PHONE_HOST:-192.168.11.9}}"
 
 # Run a command on the phone as root.
 as_root() {
@@ -60,15 +62,17 @@ as_root chmod 644 /etc/init/shairport-sync.conf
 # this the receiver never advertises and the job never runs after a reboot.
 # Looked like a broken job; was a missing dependency.
 #
-# Also pins the mDNS hostname. The stock name loses an Avahi name-conflict
-# probe and the daemon renames itself to <name>-2 on every restart, so the
-# SRV record in the AirPlay advertisement keeps changing and Music Assistant
-# fails with "cliairplay: Cannot resolve hostname". A name nothing else
-# claims stays stable; apps/music-assistant/compose.yaml pins the same name
-# in extra_hosts because that container has no mDNS resolver.
+# Also pins the mDNS hostname to DEVICE_NAME (lowercased), which is the same
+# name used by setup.sh, README examples and the home server's
+# /etc/music-assistant/hosts sync. Unpinned, Avahi can lose a conflict probe and
+# rename itself to <name>-2 on restart, so the SRV record in the AirPlay
+# advertisement keeps changing and Music Assistant fails with
+# "cliairplay: Cannot resolve hostname". A name nothing else claims stays
+# stable.
 echo "[5/8] Enabling avahi-daemon at boot..."
 { echo "$SUDO_PIN"; cat <<'AVAHI_EOF'
 set -e
+name="$1"
 f=/etc/init/avahi-daemon.override
 if [ -f "$f" ]; then
     cp -n "$f" "$f.pre-receiver"
@@ -77,18 +81,18 @@ if [ -f "$f" ]; then
 fi
 
 c=/etc/avahi/avahi-daemon.conf
-if ! grep -qx 'host-name=parlantes-n5' "$c"; then
+if ! grep -qx "host-name=$name" "$c"; then
     cp -n "$c" "$c.pre-receiver"
     if grep -qE '^[[:space:]]*host-name=' "$c"; then
-        sed -i 's|^[[:space:]]*host-name=.*|host-name=parlantes-n5|' "$c"
+        sed -i "s|^[[:space:]]*host-name=.*|host-name=$name|" "$c"
     else
-        sed -i 's|^\[server\]|[server]\nhost-name=parlantes-n5|' "$c"
+        sed -i "s|^\[server\]|[server]\nhost-name=$name|" "$c"
     fi
     initctl restart avahi-daemon
 fi
-grep -qx 'host-name=parlantes-n5' "$c" || { echo "host-name pin failed" >&2; exit 1; }
+grep -qx "host-name=$name" "$c" || { echo "host-name pin failed" >&2; exit 1; }
 AVAHI_EOF
-} | ssh -o BatchMode=yes "$PHONE" "sudo -S -p '' bash -s"
+} | ssh -o BatchMode=yes "$PHONE" "sudo -S -p '' bash -s ${DEVICE_NAME,,}"
 as_root initctl start avahi-daemon >/dev/null 2>&1 || true
 
 # 6. Stop PulseAudio parking the sink when idle
