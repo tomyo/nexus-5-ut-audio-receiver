@@ -103,3 +103,15 @@ Convert a Nexus 5 (hammerhead) into a dedicated, high-quality Bluetooth audio re
 2. If quality remains inadequate, investigate actual SBC encoding bitrate and analog cable/speaker gain before disruptive hardware-rate experiments.
 3. If requested, reproduce the accepted user override in installation tooling; currently a fresh install does not include it.
 4. Separate future work: enable mDNS, reserve an IP on the router, investigate volume-sync reconnect behavior, and refine auto-pairing security. SSH was restored in the follow-up, but its installer path still needs updating if fresh-install reproducibility is requested.
+
+## Follow-up: Wi-Fi / AirPlay Path (2026-10-26)
+
+Bluetooth on this device shares the 2.4 GHz radio with Wi-Fi: streaming cut Wi-Fi, and quality was choppy. Accepted trade-off: the phone now works as a **Wi-Fi receiver** and Bluetooth is reserved for guests via a separate dongle on the stereo.
+
+- Pipeline: AirPlay -> `shairport-sync` -> ALSA `pulse` plugin -> PulseAudio `sink.primary` (48 kHz) -> 3.5 mm jack. `soxr` interpolation; 44.1 kHz AirPlay is resampled in the chain.
+- `shairport-sync 2.8.0` is the only armhf build Xenial provides, and it has **no** PulseAudio backend. `output_backend` must stay `alsa` with `output_device = "pulse"`; `libasound2-plugins` supplies that PCM plugin.
+- Upstart job `/etc/init/shairport-sync.conf` (template: `scripts/shairport-sync-service.conf`) starts on `(net-device-up IFACE=wlan0 and started dbus and started avahi-daemon)` and stops with `unity8`. It sets `PULSE_SERVER=unix:/run/user/32011/pulse/native`; without it the daemon cannot find the user's PulseAudio socket.
+- `module-suspend-on-idle` was clipping the first note of every track. Unloaded at runtime and the load line in `/etc/pulse/default.pa` is commented out (backup `/etc/pulse/default.pa.pre-receiver`). Sink now reports `IDLE`, never `SUSPENDED`, when idle.
+- A per-user `~/.config/pulse/default.pa` using `.include /etc/pulse/default.pa` was rejected: it hung a parse test, and a bad include would leave the phone with no audio at all. Patching the system file has fewer failure modes.
+- Verified: job managed by Upstart (`respawn`), advertises `AC3A371A0866@Parlantes` on `_raop._tcp`, delivers audio to the stereo, and the installer is idempotent across repeat runs.
+- Not covered: AirPlay 2 (no `_airplay._tcp`, AirPlay 1 only), and BT/Wi-Fi coexistence (`bt-wifi-sync` still drops Wi-Fi while Bluetooth streams, killing AirPlay).

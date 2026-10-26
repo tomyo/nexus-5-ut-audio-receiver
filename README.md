@@ -1,6 +1,6 @@
 # Nexus 5 Ubuntu Touch Audio Receiver
 
-A Nexus 5 (hammerhead) running Ubuntu Touch receives Bluetooth A2DP audio and sends it to a stereo through its 3.5 mm jack. Optional Spotify Connect uses a separate go-librespot installer.
+A Nexus 5 (hammerhead) running Ubuntu Touch sends audio to a stereo through its 3.5 mm jack. Two input paths exist: Bluetooth A2DP, and Wi-Fi via AirPlay (`shairport-sync`, used by Music Assistant). Optional Spotify Connect uses a separate go-librespot installer.
 
 ## Stable Playback Contract
 
@@ -19,6 +19,7 @@ A Nexus 5 (hammerhead) running Ubuntu Touch receives Bluetooth A2DP audio and se
 | `bt-wifi-sync` | Turn Wi-Fi off during incoming Bluetooth audio and on when idle; no DNS edits or Spotify restarts |
 | `bt-agent` | Discoverable, automatic no-input pairing; use only on a trusted network/physical site |
 | `keep-awake` | Hold a hardware wakelock while externally powered; increases power/heat |
+| `shairport-sync` | AirPlay receiver for the Wi-Fi path; writes to ALSA's `pulse` plugin (see below) |
 
 Wi-Fi automation intentionally manages the radio even if it was manually disabled. Use USB ADB during playback: Wi-Fi SSH will disappear when streaming begins. Bluetooth services start with system D-Bus rather than depending on Wi-Fi association. Spotify still needs Wi-Fi.
 
@@ -37,6 +38,27 @@ Setup preserves saved Bluetooth bonds, installs the tested user resampler overri
 SSH on Ubuntu Touch also depends on its persistent service property and authorized keys; see `diagnostics/ssh-access.md`. A `.local` hostname requires Avahi actually enabled; a hostname alone does not prove mDNS works. Never remove the lockscreen before verifying a separate administrator login. Setup creates a locked rescue account, not a default-password backdoor; set its password interactively first.
 
 Spotify installation remains separate: `bash setup-spotifyd.sh`. Its historical filename does not mean the active service is spotifyd. Spotify and fresh-install behavior are not certified by Bluetooth unit tests.
+
+## AirPlay (Wi-Fi) Path
+
+`bash setup-shairport.sh` installs the Wi-Fi path:
+
+```text
+AirPlay (iOS/macOS/Music Assistant) -> shairport-sync -> ALSA "pulse" plugin
+  -> PulseAudio sink.primary -> 3.5 mm jack -> stereo
+```
+
+Three constraints are not obvious and were each learned the hard way:
+
+- shairport-sync **2.8.0** (the only armhf build Xenial offers) has **no native PulseAudio backend**. `pulseaudio` is not a valid `output_backend`; ALSA is the only synchronised backend, so it writes to ALSA's `pulse` PCM plugin and therefore needs `libasound2-plugins`.
+- PulseAudio's `module-suspend-on-idle` parks `sink.primary` seconds after playback stops, and every new stream then clips its first note. `/etc/pulse/default.pa` has that load line commented out (backup: `/etc/pulse/default.pa.pre-receiver`). A pristine copy is kept so the patch can be re-applied.
+- The Upstart job must set `PULSE_SERVER=unix:/run/user/32011/pulse/native`. There is no session environment in an Upstart job, so shairport-sync would otherwise look for its own socket path and fail.
+
+The two input paths are **mutually exclusive in practice**: `bt-wifi-sync` drops Wi-Fi while Bluetooth audio streams, which would kill an AirPlay session. Use one mode at a time.
+
+The receiver advertises as `AC3A371A0866@Parlantes` on `_raop._tcp` (AirPlay 1, port 5000, `pw=false`). It does not publish `_airplay._tcp`, so AirPlay 2 features (multi-room, buffered audio) are unavailable.
+
+Log for this path: `/var/log/upstart/shairport-sync.log`.
 
 ## Development And Evidence
 
