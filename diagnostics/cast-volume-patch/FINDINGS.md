@@ -1,73 +1,59 @@
-# Nest Hub (Sendspin over Cast) ignores the Cast volume mixer
+# Nest Hub volume: the mixer can wedge mid-session (reboot clears it)
 
-Investigated 2026-10-26 against Music Assistant `2.11.0b7` (`ghcr.io/music-assistant/server:beta`).
+Investigated 2026-10-26 against Music Assistant `2.11.0b7`
+(`ghcr.io/music-assistant/server:beta`). **Not filed upstream — not reproducible after
+a reboot, and the earlier conclusions below were wrong.**
 
-## Symptom
+## Final state
 
-Volume slider for the **Kitchen display** (Google Nest Hub) in the MA app and web UI
-moves, but loudness never changes. Parlantes (AirPlay, Nexus 5) controls fine.
+After rebooting the Nest Hub, volume control works for **both** players from the MA web
+UI: Parlantes (AirPlay, Nexus 5) and Kitchen display (Sendspin over Cast). Nothing is
+patched on the Zotac or the phone, and MA is on the stock `:beta` image.
 
-## What actually happens
+## What happened before the reboot
 
-1. The user's slider reaches MA and is dispatched correctly.
-   Instrumented `providers/chromecast/player.py::volume_set` logged 18 events, every
-   one forwarded to the linked protocol player, zero resolution errors:
+- MA dispatched every slider move correctly: instrumenting
+  `providers/chromecast/player.py::volume_set` logged 18 events, each forwarded to the
+  linked protocol player, no resolution errors.
+- The device accepted and echoed every value (`CastStatus.volume_level` read back
+  exactly), including `0.0` with `volume_muted = False`.
+- Audio kept playing at unchanged loudness at **any** device volume, and the Nest's own
+  on-screen volume indicator moved in response to hardware buttons while the cast app's
+  screen ignored it.
+- Casting **Spotify directly** to the same device showed the same behaviour — Spotify's
+  volume UI moved, loudness did not. That is what disproved the "MA's receiver app
+  renders its own gain" theory: Spotify is not MA's app.
 
-   ```
-   VOLPATCH volume_set 40 app_id=DD107DDB linked=['spb_dce55ba0c799']
-   VOLPATCH forwarding to protocol player spb_dce55ba0c799
-   ```
+## After reboot: everything behaves
 
-2. The Cast device accepts and reports every value. Driven directly with
-   `pychromecast` from inside the container, bypassing MA entirely:
+- Spotify's own volume control worked immediately.
+- Direct control, bypassing every app:
 
-   ```
-   app: DD107DDB            # Sendspin over Cast (MA 2.9)
-   FULL  (5s) -> device 1.0
-   SILENT(8s) -> device 0.0
-   FULL  (5s) -> device 1.0
-   ```
+  ```
+  app: CC32E753 | vol now: 0.5
+  SILENT 8s -> device 0.0     (audibly silent)
+  restored  -> device 0.35    (audible again)
+  ```
 
-   Later, with audio playing, `vol: 0.0, muted: False` and the speaker was **still
-   loud** — audible to the user, twice, in independent tests.
+- Then MA's Sendspin over Cast receiver took over without issue and its volume works
+  too, from the web UI.
 
-3. Therefore the receiver web app renders audio outside the device mixer's control.
-   MA cannot fix this: it sends the volume, the device stores it, the app ignores it.
-   Sending the value over the Sendspin protocol instead (`VolumeChangedEvent` via
-   `bridge_role.py:271`) makes no difference either — that path was instrumented and
-   forwarded for all 18 events.
+## Probable trigger
 
-## Ruled out along the way
+The session in which it broke involved MA switching the player's output protocol
+mid-playback (`Setting active output protocol on Kitchen display to Native`, then back
+to `Sendspin` 20 seconds later, in the middle of a Spotify stream-slot conflict). A
+suspended/idle receiver appears to be able to leave the platform mixer inert across
+subsequent apps until the device restarts.
 
-- **Missing volume forwarding in the bridge** — forwarded for every event, no change.
-- **Defer-idle-volume / CVAA interference** — device was in a real playing session
-  (`app_id=DD107DDB`, player UI on screen), not idle.
-- **Wrong player receiving the command** — driver logs show the correct player.
-- **Native-vs-protocol volume routing** — `controllers/config/players.py:874-877`
-  never offers the protocol player as a volume option when the parent has native
-  volume (`if has_native_volume_control: break`), so routing is not selectable; the
-  Chromecast player writes `cc.set_volume`, which the device honours at its own layer.
-- **Beta regression** — upgraded 2.10.8 → 2.11.0b7 mid-investigation; identical
-  behaviour, so this is not a beta artifact.
+Unproven: the trigger was not reproduced after the reboot, so this remains a hypothesis
+with a known recovery step (reboot the Cast device), not a defect with a repro.
 
-## Confounder worth remembering
+## Lesson worth keeping
 
-The Nest Hub was **not** the speaker producing sound for most of the session: it sat
-in ambient/backdrop mode (`app_id=E8C28D3C`, the default receiver) while Parlantes
-played. Muting the phone and hearing "music continue" was misread as "the Nest is
-audible". The user spotted the tell: the photo frame stayed on screen during
-playback. Only after forcing play on the group did the device show the player UI.
-
-A separate, real MA bug surfaced in the same session: pressing play on the Kitchen
-display alone stole the single Spotify stream slot from the group
-(`Stopping paused queue Kitchen display, another queue needs its spotify--G7BAGapB
-stream slot`), after which MA set the player back to `Sendspin` without relaunching
-the cast app, leaving it in the default receiver while MA believed Sendspin was
-active.
-
-## Status
-
-- Volume experiment reverted; container recreated clean from the `:beta` image.
-- Nothing patched on the Zotac or the phone.
-- Workaround options: use a Cast target whose app respects the mixer, or drop that
-  device from the sync group, or accept fixed loudness on it.
+For a whole evening, "the Nest Hub ignores volume" was explained by a plausible-looking
+code path (`if has_native_volume_control: break` in
+`controllers/config/players.py:874-877`, which genuinely does prevent choosing the
+protocol player as volume target). The device evidence pointed the other way, and the
+cheap test — a different app on the same hardware — is what exposed it. Check the
+device with a second, independent app before reading MA's source.
