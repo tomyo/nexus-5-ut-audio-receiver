@@ -9,19 +9,30 @@
 #
 # Runs over SSH (the device is reachable on the LAN). Override the target with
 #   PHONE=phablet@<ip> ./setup-shairport.sh
+#
+# Config file: Set CONFIG_ENV to point to your config (default: scripts/config.env)
+# For public deployment, copy scripts/.env.example to config.env and edit.
 
 set -e
 
-if [ -f "scripts/config.env" ]; then
-    source scripts/config.env
+# Config file path:
+# - For personal use: devices/nexus5-parlantes/config.env (in servers-fleet)
+# - For public deployment: scripts/.env.example as template
+CONFIG_ENV=${CONFIG_ENV:-scripts/config.env}
+if [ -f "$CONFIG_ENV" ]; then
+    source "$CONFIG_ENV"
+elif [ -f "scripts/.env.example" ]; then
+    echo "Warning: Using example config. Copy scripts/.env.example to scripts/config.env and edit."
+    source scripts/.env.example
 else
-    echo "Error: scripts/config.env not found!"
+    echo "Error: No config.env found! Set CONFIG_ENV=/path/to/config.env or create scripts/config.env"
     exit 1
 fi
 
 # config.env carries PHONE_HOST so the target address lives in one place
 # instead of being repeated (and drifting) across every installer.
 PHONE="${PHONE:-phablet@${PHONE_HOST:-192.168.11.9}}"
+DEVICE_NAME="${DEVICE_NAME:-Parlantes}"
 
 # Run a command on the phone as root.
 as_root() {
@@ -152,7 +163,7 @@ as_root start shairport-sync
 
 sleep 2
 echo
-echo "--- Verification ---"
+echo "--- Verification"
 echo -n "process:   "
 ssh -o BatchMode=yes "$PHONE" "pgrep -x shairport-sync | head -n 1 || echo 'NOT RUNNING'"
 echo -n "advert:    "
